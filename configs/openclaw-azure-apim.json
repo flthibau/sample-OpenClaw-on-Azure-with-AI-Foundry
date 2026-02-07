@@ -1,0 +1,109 @@
+{
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "~/.openclaw/workspace",
+      "model": {
+        "primary": "azure-apim-gpt5/gpt-5.2"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "azure-apim-gpt5": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/gpt-5.2",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-5.2",
+            "name": "GPT 5.2 via Azure APIM",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 256000,
+            "maxTokens": 64000
+          }
+        ]
+      },
+      "azure-apim-gpt5-codex": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/gpt-5.2-codex",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-5.2-codex",
+            "name": "GPT 5.2 Codex via Azure APIM",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 256000,
+            "maxTokens": 64000
+          }
+        ]
+      },
+      "azure-apim-embeddings": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/text-embedding-3-small",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-embeddings",
+        "models": [
+          {
+            "id": "text-embedding-3-small",
+            "name": "Text Embedding 3 Small via Azure APIM",
+            "input": ["text"],
+            "dimensions": 1536
+          }
+        ]
+      },
+      "azure-apim-transcribe": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/gpt-4o-transcribe",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-audio",
+        "models": [
+          {
+            "id": "gpt-4o-transcribe",
+            "name": "GPT-4o Transcribe via Azure APIM",
+            "input": ["audio"]
+          }
+        ]
+      },
+      "azure-apim-audio": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/gpt-4o-audio-preview",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-audio",
+        "models": [
+          {
+            "id": "gpt-4o-audio-preview",
+            "name": "GPT-4o Audio Preview via Azure APIM",
+            "input": ["audio", "text"],
+            "output": ["audio", "text"]
+          }
+        ]
+      },
+      "azure-apim-sora": {
+        "baseUrl": "${APIM_ENDPOINT}/openai/deployments/sora-2",
+        "apiKey": "${APIM_SUBSCRIPTION_KEY}",
+        "api": "openai-video",
+        "models": [
+          {
+            "id": "sora-2",
+            "name": "Sora 2 via Azure APIM",
+            "input": ["text", "image"],
+            "output": ["video"]
+          }
+        ]
+      }
+    }
+  },
+  "memory": {
+    "enabled": true,
+    "provider": "azure-apim-embeddings",
+    "model": "text-embedding-3-small"
+  }
+}

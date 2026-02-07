@@ -1,0 +1,11 @@
+{
+  "properties": {
+    "subscriptionRequired": true,
+    "displayName": "OpenAI Proxy",
+    "serviceUrl": "https://admin-0508-resource.cognitiveservices.azure.com/openai",
+    "path": "openai",
+    "protocols": [
+      "https"
+    ]
+  }
+}

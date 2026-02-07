@@ -1,0 +1,179 @@
+#cloud-config
+# =============================================================
+# OpenClaw on Azure - Cloud-Init Configuration
+# This script runs on first boot to configure the VM
+# =============================================================
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+  - jq
+  - unzip
+  - htop
+  - tmux
+
+# Install Docker
+runcmd:
+  # Add Docker's official GPG key
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  
+  # Set up Docker repository
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  
+  # Install Docker Engine
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  
+  # Add the admin user to docker group (will be created by Azure)
+  - usermod -aG docker $(getent passwd 1000 | cut -d: -f1) || true
+  
+  # Enable Docker service
+  - systemctl enable docker
+  - systemctl start docker
+  
+  # Install Node.js 20.x LTS
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+  
+  # Install pnpm
+  - npm install -g pnpm
+  
+  # Clone OpenClaw
+  - git clone https://github.com/openclaw/openclaw.git /opt/openclaw
+  - chown -R 1000:1000 /opt/openclaw
+  
+  # Create symlink in home directory
+  - ln -sf /opt/openclaw /home/$(getent passwd 1000 | cut -d: -f1)/openclaw || true
+  
+  # Install Azure CLI
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  
+  # Create OpenClaw configuration directory
+  - mkdir -p /opt/openclaw/config
+  
+  # Create startup script
+  - |
+    cat > /opt/openclaw/start.sh << 'EOF'
+    #!/bin/bash
+    # OpenClaw Startup Script
+    
+    echo "==================================="
+    echo "  OpenClaw on Azure with AI Foundry"
+    echo "==================================="
+    echo ""
+    echo "Starting OpenClaw..."
+    
+    cd /opt/openclaw
+    
+    # Check if .env exists
+    if [ ! -f .env ]; then
+        echo ""
+        echo "⚠️  Configuration needed!"
+        echo ""
+        echo "Please configure OpenClaw by creating a .env file:"
+        echo "  cp .env.example .env"
+        echo "  nano .env"
+        echo ""
+        echo "For Azure AI Foundry, set:"
+        echo "  AZURE_OPENAI_ENDPOINT=your-endpoint"
+        echo "  AZURE_OPENAI_DEPLOYMENT=your-deployment-name"
+        echo ""
+        echo "Using Managed Identity - no API key needed!"
+        exit 1
+    fi
+    
+    # Start with Docker Compose
+    docker compose up -d
+    
+    echo ""
+    echo "✅ OpenClaw is starting..."
+    echo "   View logs: docker compose logs -f"
+    echo "   Stop: docker compose down"
+    echo ""
+    EOF
+  
+  - chmod +x /opt/openclaw/start.sh
+  
+  # Create Azure AI Foundry connection helper
+  - |
+    cat > /opt/openclaw/setup-azure-ai.sh << 'EOF'
+    #!/bin/bash
+    # Azure AI Foundry Connection Setup
+    
+    echo "==================================="
+    echo "  Azure AI Foundry Setup Helper"
+    echo "==================================="
+    echo ""
+    
+    # Get Managed Identity token
+    echo "Testing Managed Identity authentication..."
+    TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://cognitiveservices.azure.com/' -H Metadata:true | jq -r '.access_token')
+    
+    if [ "$TOKEN" != "null" ] && [ -n "$TOKEN" ]; then
+        echo "✅ Managed Identity is working!"
+        echo ""
+        echo "You can now configure OpenClaw to use Azure AI Foundry."
+        echo ""
+        echo "Add these to your .env file:"
+        echo "  AZURE_USE_MANAGED_IDENTITY=true"
+        echo "  AZURE_OPENAI_ENDPOINT=<your-ai-foundry-endpoint>"
+        echo "  AZURE_OPENAI_DEPLOYMENT=<your-model-deployment-name>"
+    else
+        echo "❌ Could not get Managed Identity token"
+        echo ""
+        echo "Make sure:"
+        echo "1. The VM has a Managed Identity assigned"
+        echo "2. The identity has 'Cognitive Services OpenAI User' role on your AI Foundry"
+    fi
+    EOF
+  
+  - chmod +x /opt/openclaw/setup-azure-ai.sh
+  
+  # Set MOTD (Message of the Day)
+  - |
+    cat > /etc/motd << 'EOF'
+    
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║                                                               ║
+    ║   🐾 OpenClaw on Azure with AI Foundry                        ║
+    ║                                                               ║
+    ║   Quick Start:                                                ║
+    ║   1. cd ~/openclaw                                            ║
+    ║   2. ./setup-azure-ai.sh    # Test Azure AI connection        ║
+    ║   3. cp .env.example .env   # Configure environment           ║
+    ║   4. ./start.sh             # Start OpenClaw                  ║
+    ║                                                               ║
+    ║   Documentation: https://github.com/openclaw/openclaw         ║
+    ║                                                               ║
+    ╚═══════════════════════════════════════════════════════════════╝
+    
+    EOF
+  
+  # Final cleanup
+  - apt-get autoremove -y
+  - apt-get clean
+
+# Write files
+write_files:
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m",
+          "max-file": "3"
+        }
+      }
+    permissions: '0644'
+
+final_message: |
+  OpenClaw on Azure setup complete!
+  System ready after $UPTIME seconds.

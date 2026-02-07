@@ -1,0 +1,15 @@
+{
+  "properties": {
+    "subscriptionKeyParameterNames": {
+      "header": "api-key",
+      "query": "api-key"
+    },
+    "subscriptionRequired": true,
+    "protocols": [
+      "https"
+    ],
+    "displayName": "OpenAI Proxy",
+    "serviceUrl": "https://admin-0508-resource.cognitiveservices.azure.com/openai",
+    "path": "openai"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "mcpServers": {},
+  "providers": {
+    "azure-gpt5-codex": {
+      "apiKey": "f912e4b174d645aabe927e80f9992ff6",
+      "baseUrl": "https://apim-openclaw-0974.azure-api.net/openai",
+      "custom": true,
+      "model": "gpt-5.2-codex"
+    },
+    "azure-gpt5": {
+      "apiKey": "f912e4b174d645aabe927e80f9992ff6",
+      "baseUrl": "https://apim-openclaw-0974.azure-api.net/openai",
+      "custom": true,
+      "model": "gpt-5.2"
+    },
+    "azure-gpt51-codex": {
+      "apiKey": "f912e4b174d645aabe927e80f9992ff6",
+      "baseUrl": "https://apim-openclaw-0974.azure-api.net/openai",
+      "custom": true,
+      "model": "gpt-5.1-codex"
+    }
+  },
+  "primaryProvider": "azure-gpt5-codex"
+}

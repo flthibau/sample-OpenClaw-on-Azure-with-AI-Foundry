@@ -1,0 +1,14 @@
+{
+  "properties": {
+    "templateParameters": [
+      {
+        "required": true,
+        "type": "string",
+        "name": "deployment-id"
+      }
+    ],
+    "displayName": "Chat Completions",
+    "method": "POST",
+    "urlTemplate": "/deployments/{deployment-id}/chat/completions"
+  }
+}

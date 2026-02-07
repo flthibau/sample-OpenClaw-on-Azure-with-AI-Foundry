@@ -1,0 +1,6 @@
+{
+  "properties": {
+    "format": "xml",
+    "value": "<policies>\n    <inbound>\n        <base />\n        <authentication-managed-identity resource=\"https://cognitiveservices.azure.com\" output-token-variable-name=\"msi-access-token\" ignore-error=\"false\" />\n        <set-header name=\"Authorization\" exists-action=\"override\">\n            <value>@(\"Bearer \" + (string)context.Variables[\"msi-access-token\"])</value>\n        </set-header>\n        <set-header name=\"api-key\" exists-action=\"delete\" />\n        <set-query-parameter name=\"api-version\" exists-action=\"override\">\n            <value>2024-10-21</value>\n        </set-query-parameter>\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>"
+  }
+}
