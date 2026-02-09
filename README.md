@@ -362,6 +362,48 @@ journalctl -u openclaw -f
 - **Encryption**: Disk encryption enabled by default
 - **RBAC**: Fine-grained access control
 
+## � Multi-Agent : Agent dédié par utilisateur Telegram
+
+OpenClaw supporte le **multi-agent** : chaque utilisateur Telegram peut être routé vers un agent spécifique avec son propre workspace, ses propres skills et ses propres restrictions.
+
+### Cas d'usage : Corinne
+
+Corinne est une utilisatrice non-technique. Elle ne doit avoir accès qu'à **une seule fonctionnalité** : envoyer un lien YouTube et recevoir la vidéo doublée en français. Pas de shell, pas de code, pas de browse — juste Telegram.
+
+Pour cela, un agent dédié `corinne` est configuré :
+
+1. **Agent séparé** avec un workspace isolé (`~/.openclaw/workspace-corinne/`)
+2. **Binding Telegram** : les DM de Corinne sont automatiquement routés vers l'agent `corinne`
+3. **SOUL.md restrictif** : l'agent ne fait qu'une seule chose (doubler des vidéos YouTube)
+4. **Skills restreints** : seuls les skills du workspace Corinne sont accessibles
+
+```json
+// Dans ~/.openclaw/openclaw.json
+{
+  "agents": {
+    "list": [
+      { "id": "main", "default": true },
+      {
+        "id": "corinne",
+        "name": "Corinne",
+        "workspace": "/home/azureuser/.openclaw/workspace-corinne"
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "corinne",
+      "match": {
+        "channel": "telegram",
+        "peer": { "kind": "dm", "id": "TELEGRAM_USER_ID" }
+      }
+    }
+  ]
+}
+```
+
+Pour plus de détails, voir [docs/USAGE.md](docs/USAGE.md#multi-agent--agent-dédié-par-utilisateur).
+
 ## 📁 Project Structure
 
 ```
@@ -369,6 +411,13 @@ sample-OpenClaw-on-Azure-with-AI-Foundry/
 ├── README.md                       # This file
 ├── configs/
 │   └── openclaw-azure-apim.json   # ⭐ Template de config OpenClaw
+├── skills/
+│   ├── yt_fr_dub/                 # 🎬 Skill de doublage YouTube en français
+│   │   ├── run.js                 # Script principal (Azure SDK + Managed Identity)
+│   │   ├── SKILL.md               # Définition du skill pour OpenClaw
+│   │   └── package.json           # Dépendances (@azure/identity, @azure/storage-blob)
+│   └── yt-dlp-downloader-skill/   # 📥 Skill de téléchargement vidéo
+│       └── SKILL.md               # Définition du skill
 ├── infra/
 │   ├── main-complete.bicep        # Complete infrastructure (recommended)
 │   ├── main.bicep                 # Basic infrastructure template

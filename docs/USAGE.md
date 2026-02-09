@@ -10,6 +10,7 @@ This guide provides detailed instructions for configuring and using OpenClaw on 
 - [Starting OpenClaw](#starting-openclaw)
 - [Connecting Messaging Channels](#connecting-messaging-channels)
 - [Using OpenClaw](#using-openclaw)
+- [Multi-Agent : Agent dédié par utilisateur](#multi-agent--agent-dédié-par-utilisateur)
 - [Advanced Configuration](#advanced-configuration)
 - [Monitoring and Logs](#monitoring-and-logs)
 - [Updating OpenClaw](#updating-openclaw)
@@ -455,6 +456,110 @@ OpenClaw: I'll help you set up a daily Azure cost summary. Here's the approach:
 
 Would you like me to generate the code for this automation?
 ```
+
+---
+
+## Multi-Agent : Agent dédié par utilisateur
+
+OpenClaw permet de créer **plusieurs agents** sur la même instance, chacun avec son propre workspace, ses skills et sa personnalité. Un système de **bindings** route automatiquement les messages Telegram vers l'agent approprié.
+
+### Pourquoi ?
+
+Certains utilisateurs (famille, collègues) n'ont pas besoin de toutes les capacités d'OpenClaw. On peut leur créer un agent **restreint** qui n'expose qu'un seul skill via Telegram, sans accès au shell, au browsing ou aux autres outils.
+
+### Exemple concret : agent "Corinne"
+
+Corinne utilise Telegram sur son téléphone. Elle envoie un lien YouTube → elle reçoit la vidéo doublée en français. C'est tout.
+
+#### 1. Déclarer l'agent dans `~/.openclaw/openclaw.json`
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": { "primary": "azure-apim/gpt-5.2" },
+      "workspace": "/home/azureuser/.openclaw/workspace"
+    },
+    "list": [
+      { "id": "main", "default": true },
+      {
+        "id": "corinne",
+        "name": "Corinne",
+        "workspace": "/home/azureuser/.openclaw/workspace-corinne",
+        "identity": { "name": "Mnemo", "emoji": "🧠" },
+        "tools": {}
+      }
+    ]
+  }
+}
+```
+
+**Points clés :**
+- `workspace` séparé : l'agent n'a accès qu'aux fichiers/skills de ce dossier
+- `tools: {}` : pas d'outils supplémentaires (les skills du workspace suffisent)
+
+#### 2. Binding Telegram → Agent
+
+Le binding route automatiquement les DM d'un utilisateur Telegram vers un agent :
+
+```json
+{
+  "bindings": [
+    {
+      "agentId": "corinne",
+      "match": {
+        "channel": "telegram",
+        "peer": { "kind": "dm", "id": "8494122135" }
+      }
+    }
+  ]
+}
+```
+
+Pour trouver l'ID Telegram d'un utilisateur : envoyez `/start` au bot, puis cherchez le `chat.id` dans les logs (`journalctl -u openclaw -f`).
+
+#### 3. Workspace restreint
+
+Créez le workspace avec un `SOUL.md` restrictif :
+
+```bash
+mkdir -p ~/.openclaw/workspace-corinne/skills
+```
+
+**`~/.openclaw/workspace-corinne/SOUL.md`** — définit le comportement :
+```markdown
+# SOUL.md - Mode Corinne
+
+Tu es Mnemo, en mode strictement limité pour Corinne.
+
+## Mission
+- Tu fais uniquement une chose : doubler des vidéos YouTube en français.
+- Objectif : une expérience ultra simple sur téléphone.
+
+## Règles
+1. Si le message contient une URL YouTube : appelle le skill yt_fr_dub.
+2. Sinon : réponds "Envoie juste un lien YouTube."
+3. Ne renvoie jamais de commandes, de JSON ou de détails techniques.
+```
+
+#### 4. Skills dans le workspace Corinne
+
+Copiez ou liez uniquement les skills autorisés :
+
+```bash
+cp -r ~/.openclaw/workspace/skills/yt_fr_dub ~/.openclaw/workspace-corinne/skills/
+```
+
+L'agent Corinne n'aura accès qu'aux skills de son workspace.
+
+#### 5. Résultat
+
+| Utilisateur | Canal | Agent | Capacités |
+|-------------|-------|-------|-----------|
+| Florent (admin) | Telegram / TUI | `main` | Tous les outils, shell, browse, skills |
+| Corinne | Telegram DM | `corinne` | Uniquement le skill `yt_fr_dub` |
+
+Corinne envoie un lien YouTube sur Telegram → Mnemo télécharge, transcrit, traduit, synthétise la voix, remuxe → upload le MP4 via Managed Identity sur Azure Storage → renvoie le lien de la vidéo doublée.
 
 ---
 
