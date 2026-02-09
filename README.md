@@ -30,44 +30,41 @@ Running AI agents on your local machine can be risky - they can access your file
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                 Azure                                        │
-│                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │                    Virtual Network (10.0.0.0/16)                        │  │
-│  │                                                                         │  │
-│  │  ┌─────────────────┐     ┌──────────────────────────────────────────┐  │  │
-│  │  │ Azure Bastion   │     │           Linux VM (OpenClaw)            │  │  │
-│  │  │ (Secure Access) │────▶│  - Node.js 22 + npm                      │  │  │
-│  │  └─────────────────┘     │  - OpenClaw (native install)             │  │  │
-│  │                          │  - Gateway + TUI                          │  │  │
-│  │                          └──────────────────────────────────────────┘  │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-│                                       │                                       │
-│                                       │ HTTPS                                 │
-│                                       ▼                                       │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │                 Azure API Management (APIM)                             │  │
-│  │                                                                         │  │
-│  │   1. Receives: Authorization: Bearer <subscription-key>                  │  │
-│  │   2. Gets: MSI Token for cognitiveservices.azure.com                    │  │
-│  │   3. Forwards: Authorization: Bearer <msi-token>                        │  │
-│  │                                                                         │  │
-│  │   🔐 Managed Identity: "Cognitive Services OpenAI User"                 │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-│                                       │                                       │
-│                                       │ HTTPS (MSI Auth)                      │
-│                                       ▼                                       │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │                        Azure AI Foundry                                 │  │
-│  │                                                                         │  │
-│  │   Deployments:                                                          │  │
-│  │   - gpt-5.2 (chat completions)                                          │  │
-│  │   - gpt-5.2-codex (code completion - no chat)                           │  │
-│  │                                                                         │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Azure["☁️ Azure"]
+        subgraph VNet["Virtual Network 10.0.0.0/16"]
+            Bastion["🔒 Azure Bastion<br/><i>Secure browser access</i>"]
+            VM["🖥️ Linux VM<br/><b>OpenClaw</b><br/>Node.js 22 · Gateway · TUI"]
+            Bastion -->|"SSH via browser"| VM
+        end
+
+        subgraph Storage["Azure Storage"]
+            Blob["📦 Blob Storage<br/><i>stopenclawmedia / media</i>"]
+        end
+
+        APIM["🔐 Azure API Management<br/><br/>1. Receives: Bearer subscription-key<br/>2. Gets: MSI Token<br/>3. Forwards: Bearer msi-token<br/><br/><i>Managed Identity: Cognitive Services OpenAI User</i>"]
+
+        AIFoundry["🧠 Azure AI Foundry<br/><br/>• gpt-5.2 — chat completions<br/>• gpt-5.2-codex — code completion<br/>• gpt-4o-transcribe — audio<br/>• Azure Speech — TTS"]
+    end
+
+    Telegram["📱 Telegram<br/><i>Users send messages</i>"]
+    User["👤 Admin<br/><i>Azure Bastion</i>"]
+
+    User -->|"Bastion"| Bastion
+    Telegram -->|"Bot API"| VM
+    VM -->|"HTTPS · subscription-key"| APIM
+    VM -->|"Managed Identity · Azure SDK"| Blob
+    APIM -->|"HTTPS · MSI bearer token"| AIFoundry
+
+    style Azure fill:#e8f4fd,stroke:#0078d4,stroke-width:2px
+    style VNet fill:#d4edda,stroke:#28a745,stroke-width:1px
+    style Storage fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+    style APIM fill:#f8d7da,stroke:#dc3545,stroke-width:1px
+    style AIFoundry fill:#e2d5f1,stroke:#6f42c1,stroke-width:1px
+    style VM fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style Telegram fill:#e3f2fd,stroke:#0088cc,stroke-width:1px
+    style Blob fill:#fff3cd,stroke:#ffc107,stroke-width:1px
 ```
 
 ## 🔧 OpenClaw Configuration (CRITICAL)
