@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-skill-yt-fr-dub",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "OpenClaw skill: YouTube URL -> MP4 with French audio",
+  "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@azure/storage-blob": "^12.30.0",
+    "openai": "^4.76.1",
+    "yargs": "^17.7.2"
+  }
+}
