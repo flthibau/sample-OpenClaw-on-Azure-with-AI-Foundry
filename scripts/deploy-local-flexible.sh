@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# OpenClaw - Flexible Local Deployment (WSL + Docker)
+# OpenClaw - Flexible Local Deployment (WSL - Native)
 #
-# This script deploys OpenClaw with configurable security levels:
+# This script deploys OpenClaw natively:
 # - Full access to web (browsing, APIs)
 # - Azure AI Foundry integration via Managed Identity token forwarding
 # - Dedicated storage volume (no Windows file access)
@@ -95,6 +95,7 @@ cat << 'EOF'
 ║   ✅ Azure AI Foundry integration                                        ║
 ║   ✅ Isolated storage (no Windows file access)                           ║
 ║   ✅ Configurable sandbox levels                                         ║
+║   ✅ Native installation                                                ║
 ║                                                                           ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 
@@ -134,22 +135,28 @@ else
     print_warning "Not running in WSL. This script is designed for WSL."
 fi
 
-# Check Docker
+# Check Node.js
 print_step "Checking prerequisites..."
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed."
-    echo "Install Docker Desktop for Windows and enable WSL integration."
+if ! command -v node &> /dev/null; then
+    print_error "Node.js is not installed."
+    echo "Install Node.js 20+:"
+    echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -"
+    echo "  sudo apt-get install -y nodejs"
     exit 1
 fi
-print_success "Docker installed"
+print_success "Node.js installed ($(node --version))"
 
-# Check Docker is running
-if ! docker info &> /dev/null; then
-    print_error "Docker daemon is not running."
-    echo "Start Docker Desktop and try again."
+# Check npm/pnpm
+if command -v pnpm &> /dev/null; then
+    print_success "pnpm installed"
+    PKG_MGR="pnpm"
+elif command -v npm &> /dev/null; then
+    print_success "npm installed"
+    PKG_MGR="npm"
+else
+    print_error "No package manager found. Install pnpm or npm."
     exit 1
 fi
-print_success "Docker daemon running"
 
 # Get Azure AI Foundry endpoint if not provided
 if [ "$USE_AZURE" = true ] && [ -z "$AZURE_OPENAI_ENDPOINT" ]; then
@@ -173,108 +180,85 @@ fi
 
 # Create data directory
 print_step "Creating sandbox directory..."
-mkdir -p "$DATA_DIR"/{data,logs,config,workspace,browser-data}
+mkdir -p "$DATA_DIR"/{data,logs,config,workspace}
 chmod 700 "$DATA_DIR"
 print_success "Sandbox directory: $DATA_DIR"
+
+# Clone or update OpenClaw
+print_step "Setting up OpenClaw..."
+if [ -d "$DATA_DIR/openclaw" ]; then
+    cd "$DATA_DIR/openclaw" && git pull origin main 2>/dev/null || true
+    print_success "OpenClaw updated"
+else
+    git clone https://github.com/openclaw/openclaw.git "$DATA_DIR/openclaw" 2>/dev/null || {
+        print_warning "Could not clone OpenClaw. You may need to set it up manually."
+    }
+fi
+
+# Install dependencies
+if [ -d "$DATA_DIR/openclaw" ]; then
+    cd "$DATA_DIR/openclaw"
+    $PKG_MGR install 2>/dev/null || print_warning "Could not install dependencies"
+fi
 
 # Create environment file
 print_step "Creating configuration..."
 
 if [ "$USE_AZURE" = true ]; then
-    # Azure AI Foundry configuration
     cat > "$DATA_DIR/config/.env" << ENVEOF
 # ===========================================
 # OpenClaw Flexible Sandbox Configuration
 # Generated: $(date)
 # ===========================================
 
-# ===========================================
 # Azure AI Foundry Configuration
-# Uses DefaultAzureCredential for auth
-# ===========================================
 AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
 AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT}
 AZURE_OPENAI_API_VERSION=2024-10-01-preview
 
-# For local testing, you may need an API key
-# Get it from Azure Portal > AI Foundry > Keys
-# AZURE_OPENAI_API_KEY=your-key-here
-
-# ===========================================
 # OpenClaw General Settings
-# ===========================================
 APP_NAME=OpenClaw-Sandbox
 LOG_LEVEL=info
 PORT=18789
-
-# Gateway settings
 GATEWAY_BIND=0.0.0.0
 
-# ===========================================
 # Security Settings
-# ===========================================
 SESSION_SECRET=$(openssl rand -hex 32)
 
-# ===========================================
 # Browser Control (enabled)
-# ===========================================
 BROWSER_ENABLED=true
 BROWSER_HEADLESS=true
 
-# ===========================================
 # Messaging Channels (configure as needed)
-# ===========================================
-# Telegram
 TELEGRAM_ENABLED=false
-# TELEGRAM_BOT_TOKEN=your-bot-token
-
-# WhatsApp (via Baileys)
 WHATSAPP_ENABLED=false
-
-# Slack
 SLACK_ENABLED=false
-# SLACK_BOT_TOKEN=xoxb-your-token
-# SLACK_APP_TOKEN=xapp-your-token
-
-# Discord
 DISCORD_ENABLED=false
-# DISCORD_BOT_TOKEN=your-token
 ENVEOF
 else
-    # OpenAI direct configuration
     cat > "$DATA_DIR/config/.env" << ENVEOF
 # ===========================================
 # OpenClaw Flexible Sandbox Configuration
 # Generated: $(date)
 # ===========================================
 
-# ===========================================
 # OpenAI Configuration
-# ===========================================
 OPENAI_API_KEY=${OPENAI_API_KEY}
 
-# ===========================================
 # OpenClaw General Settings
-# ===========================================
 APP_NAME=OpenClaw-Sandbox
 LOG_LEVEL=info
 PORT=18789
 GATEWAY_BIND=0.0.0.0
 
-# ===========================================
 # Security Settings
-# ===========================================
 SESSION_SECRET=$(openssl rand -hex 32)
 
-# ===========================================
 # Browser Control (enabled)
-# ===========================================
 BROWSER_ENABLED=true
 BROWSER_HEADLESS=true
 
-# ===========================================
 # Messaging Channels
-# ===========================================
 TELEGRAM_ENABLED=false
 WHATSAPP_ENABLED=false
 SLACK_ENABLED=false
@@ -285,101 +269,6 @@ fi
 chmod 600 "$DATA_DIR/config/.env"
 print_success "Configuration created"
 
-# Create OpenClaw configuration file
-cat > "$DATA_DIR/config/openclaw.json" << 'CONFIGEOF'
-{
-  "agent": {
-    "model": "azure/gpt-4o"
-  },
-  "gateway": {
-    "bind": "0.0.0.0",
-    "port": 18789
-  },
-  "browser": {
-    "enabled": true,
-    "headless": true
-  },
-  "tools": {
-    "bash": true,
-    "read": true,
-    "write": true,
-    "edit": true,
-    "process": true,
-    "browser": true
-  }
-}
-CONFIGEOF
-
-# Create docker-compose file
-print_step "Creating Docker Compose configuration..."
-cat > "$DATA_DIR/docker-compose.yml" << 'COMPOSE_EOF'
-version: '3.8'
-
-services:
-  openclaw:
-    image: openclaw/openclaw:latest
-    container_name: openclaw-sandbox
-    restart: unless-stopped
-    
-    # Full network access for web browsing and APIs
-    network_mode: bridge
-    
-    # Environment
-    env_file:
-      - ./config/.env
-    
-    # Volumes - dedicated storage only, NO /mnt/c
-    volumes:
-      # OpenClaw data and configuration
-      - ./data:/root/.openclaw:rw
-      - ./config/openclaw.json:/root/.openclaw/openclaw.json:ro
-      - ./workspace:/root/.openclaw/workspace:rw
-      - ./logs:/app/logs:rw
-      # Browser data (for persistent sessions)
-      - ./browser-data:/root/.openclaw/browser:rw
-      # Temp for browser operations
-      - /tmp/openclaw:/tmp:rw
-      # EXPLICITLY NO Windows access:
-      # - /mnt/c is NOT mounted
-    
-    # Ports
-    ports:
-      - "127.0.0.1:18789:18789"   # Gateway + WebChat
-      - "127.0.0.1:18790:18790"   # Control UI
-    
-    # Enable browser (needs some capabilities)
-    cap_add:
-      - SYS_ADMIN  # Required for Chrome sandbox
-    security_opt:
-      - seccomp=unconfined  # Required for Chrome
-    
-    # Shared memory for Chrome
-    shm_size: '2gb'
-    
-    # Health check
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:18789/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 4G
-        reservations:
-          cpus: '1'
-          memory: 1G
-
-networks:
-  default:
-    driver: bridge
-COMPOSE_EOF
-print_success "Docker Compose configuration created"
-
 # Create helper scripts
 print_step "Creating helper scripts..."
 
@@ -388,19 +277,19 @@ cat > "$DATA_DIR/start.sh" << 'START_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "🦞 Starting OpenClaw Sandbox..."
-docker compose up -d
+source config/.env 2>/dev/null
+cd openclaw 2>/dev/null && nohup npx openclaw gateway start > ../logs/openclaw.log 2>&1 &
+echo $! > ../openclaw.pid
 sleep 3
 echo ""
-echo "✅ OpenClaw started!"
+echo "✅ OpenClaw started! (PID: $(cat ../openclaw.pid))"
 echo ""
 echo "🌐 Web Interfaces:"
 echo "   • WebChat:    http://localhost:18789"
-echo "   • Control UI: http://localhost:18790"
 echo ""
 echo "📊 Quick commands:"
 echo "   ./status.sh  - Check status"
 echo "   ./logs.sh    - View logs"
-echo "   ./shell.sh   - Open shell in container"
 echo "   ./stop.sh    - Stop OpenClaw"
 START_EOF
 chmod +x "$DATA_DIR/start.sh"
@@ -410,7 +299,11 @@ cat > "$DATA_DIR/stop.sh" << 'STOP_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "🛑 Stopping OpenClaw..."
-docker compose down
+if [ -f openclaw.pid ]; then
+    kill $(cat openclaw.pid) 2>/dev/null || true
+    rm -f openclaw.pid
+fi
+pkill -f "openclaw gateway" 2>/dev/null || true
 echo "✅ OpenClaw stopped"
 STOP_EOF
 chmod +x "$DATA_DIR/stop.sh"
@@ -419,20 +312,13 @@ chmod +x "$DATA_DIR/stop.sh"
 cat > "$DATA_DIR/logs.sh" << 'LOGS_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
-docker compose logs -f
+if [ -f logs/openclaw.log ]; then
+    tail -f logs/openclaw.log
+else
+    echo "No logs found. Is OpenClaw running?"
+fi
 LOGS_EOF
 chmod +x "$DATA_DIR/logs.sh"
-
-# Shell script - get into the container
-cat > "$DATA_DIR/shell.sh" << 'SHELL_EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-echo "🐚 Opening shell in OpenClaw container..."
-echo "   Type 'exit' to leave"
-echo ""
-docker compose exec openclaw /bin/bash
-SHELL_EOF
-chmod +x "$DATA_DIR/shell.sh"
 
 # Status script
 cat > "$DATA_DIR/status.sh" << 'STATUS_EOF'
@@ -443,22 +329,24 @@ echo "🦞 OpenClaw Sandbox Status"
 echo "=========================="
 echo ""
 
-# Container status
-echo "🐳 Container:"
-docker compose ps 2>/dev/null || echo "   Not running"
+# Process status
+echo "🔧 Process:"
+if [ -f openclaw.pid ] && kill -0 $(cat openclaw.pid) 2>/dev/null; then
+    echo "   ✅ Running (PID: $(cat openclaw.pid))"
+else
+    echo "   ❌ Not running"
+fi
 
 echo ""
 echo "🔒 Security Status:"
 
 # Check mounts
-MOUNTS=$(docker inspect openclaw-sandbox 2>/dev/null | grep -i '"/mnt/c' || echo "")
-if [ -z "$MOUNTS" ]; then
+if ! ls /mnt/c 2>/dev/null | head -1 > /dev/null 2>&1; then
     echo "   ✅ Windows filesystem (/mnt/c) NOT accessible"
 else
-    echo "   ❌ WARNING: Windows filesystem IS accessible!"
+    echo "   ⚠️ Windows filesystem IS accessible (WSL default)"
 fi
 
-# Check network
 echo "   ✅ Full network access (web browsing enabled)"
 
 echo ""
@@ -476,12 +364,10 @@ echo "📁 Sandbox Locations:"
 echo "   Data:      $(pwd)/data"
 echo "   Workspace: $(pwd)/workspace"
 echo "   Logs:      $(pwd)/logs"
-echo "   Browser:   $(pwd)/browser-data"
 
 echo ""
-echo "🌐 Web Interfaces:"
-echo "   WebChat:    http://localhost:18789"
-echo "   Control UI: http://localhost:18790"
+echo "🌐 Web Interface:"
+echo "   WebChat: http://localhost:18789"
 STATUS_EOF
 chmod +x "$DATA_DIR/status.sh"
 
@@ -496,7 +382,7 @@ echo "   ./stop.sh && ./start.sh"
 EDIT_EOF
 chmod +x "$DATA_DIR/edit-config.sh"
 
-# Capabilities script - show what OpenClaw can do
+# Capabilities script
 cat > "$DATA_DIR/capabilities.sh" << 'CAP_EOF'
 #!/bin/bash
 echo "🦞 OpenClaw Capabilities in this Sandbox"
@@ -532,20 +418,12 @@ echo "❌ BLOCKED - What the agent CANNOT do:"
 echo ""
 echo "   • Access Windows files (/mnt/c not mounted)"
 echo "   • Access host credentials"
-echo "   • Escape the Docker container"
-echo "   • Access other Docker containers"
 echo ""
 echo "📝 To modify capabilities, edit ./config/openclaw.json"
 CAP_EOF
 chmod +x "$DATA_DIR/capabilities.sh"
 
 print_success "Helper scripts created"
-
-# Pull Docker image
-print_step "Pulling OpenClaw Docker image..."
-docker pull openclaw/openclaw:latest 2>/dev/null || {
-    print_warning "Could not pull image. Will try on first start."
-}
 
 # Display results
 echo -e "${GREEN}"
@@ -575,7 +453,6 @@ echo "   ./status.sh         # Check status"
 echo ""
 echo "🌐 Once started, access:"
 echo "   • WebChat:    http://localhost:18789"
-echo "   • Control UI: http://localhost:18790"
 echo ""
 
 if [ -z "$AZURE_OPENAI_ENDPOINT" ] && [ "$USE_AZURE" = true ]; then

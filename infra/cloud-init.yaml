@@ -19,26 +19,8 @@ packages:
   - htop
   - tmux
 
-# Install Docker
+# Install Node.js and OpenClaw natively
 runcmd:
-  # Add Docker's official GPG key
-  - mkdir -p /etc/apt/keyrings
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-  
-  # Set up Docker repository
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  
-  # Install Docker Engine
-  - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  
-  # Add the admin user to docker group (will be created by Azure)
-  - usermod -aG docker $(getent passwd 1000 | cut -d: -f1) || true
-  
-  # Enable Docker service
-  - systemctl enable docker
-  - systemctl start docker
-  
   # Install Node.js 20.x LTS
   - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   - apt-get install -y nodejs
@@ -90,13 +72,14 @@ runcmd:
         exit 1
     fi
     
-    # Start with Docker Compose
-    docker compose up -d
+    # Start OpenClaw natively
+    cd /opt/openclaw && pnpm install
+    npx openclaw gateway start &
     
     echo ""
     echo "✅ OpenClaw is starting..."
-    echo "   View logs: docker compose logs -f"
-    echo "   Stop: docker compose down"
+    echo "   View logs: journalctl -u openclaw -f"
+    echo "   Stop: sudo systemctl stop openclaw"
     echo ""
     EOF
   
@@ -162,18 +145,6 @@ runcmd:
   - apt-get clean
 
 # Write files
-write_files:
-  - path: /etc/docker/daemon.json
-    content: |
-      {
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "100m",
-          "max-file": "3"
-        }
-      }
-    permissions: '0644'
-
 final_message: |
   OpenClaw on Azure setup complete!
   System ready after $UPTIME seconds.

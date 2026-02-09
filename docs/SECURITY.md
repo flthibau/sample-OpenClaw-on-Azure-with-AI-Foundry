@@ -165,7 +165,7 @@ Principal: VM's Managed Identity
    - Environment variables for configuration
 
 2. **Regular updates**
-   - Keep Docker images updated
+   - Keep system packages updated
    - Review and apply OS patches
 
 3. **Monitor resource access**

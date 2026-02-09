@@ -70,19 +70,12 @@ package_update: true
 package_upgrade: true
 
 packages:
-  - docker.io
-  - docker-compose-plugin
   - git
   - curl
   - jq
   - unzip
 
 runcmd:
-  # Enable and start Docker
-  - systemctl enable docker
-  - systemctl start docker
-  - usermod -aG docker ${VM_ADMIN_USERNAME}
-  
   # Install Node.js 20.x
   - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   - apt-get install -y nodejs
@@ -96,6 +89,9 @@ runcmd:
   # Clone OpenClaw
   - git clone https://github.com/openclaw/openclaw.git /opt/openclaw
   - chown -R ${VM_ADMIN_USERNAME}:${VM_ADMIN_USERNAME} /opt/openclaw
+  
+  # Install dependencies
+  - cd /opt/openclaw && pnpm install
   
   # Create OpenClaw configuration
   - |
@@ -116,15 +112,37 @@ runcmd:
     ENVEOF
   - chown ${VM_ADMIN_USERNAME}:${VM_ADMIN_USERNAME} /opt/openclaw/.env
   
+  # Create systemd service
+  - |
+    cat > /etc/systemd/system/openclaw.service << 'SVCEOF'
+    [Unit]
+    Description=OpenClaw Gateway Service
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=${VM_ADMIN_USERNAME}
+    WorkingDirectory=/opt/openclaw
+    EnvironmentFile=/opt/openclaw/.env
+    ExecStart=/usr/bin/npx openclaw gateway start
+    Restart=on-failure
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+    SVCEOF
+  - systemctl daemon-reload
+  - systemctl enable openclaw
+  
   # Create start script
   - |
     cat > /opt/openclaw/start.sh << 'STARTEOF'
     #!/bin/bash
     cd /opt/openclaw
     echo "🚀 Starting OpenClaw..."
-    docker compose up -d
+    sudo systemctl start openclaw
     echo "✅ OpenClaw started! Access via port 18789"
-    docker compose logs -f
+    journalctl -u openclaw -f
     STARTEOF
   - chmod +x /opt/openclaw/start.sh
   - chown ${VM_ADMIN_USERNAME}:${VM_ADMIN_USERNAME} /opt/openclaw/start.sh
@@ -135,7 +153,7 @@ runcmd:
     #!/bin/bash
     echo "📊 OpenClaw Status"
     echo "=================="
-    docker compose -f /opt/openclaw/docker-compose.yml ps
+    systemctl status openclaw --no-pager
     echo ""
     echo "🔍 Testing Azure AI Foundry connection..."
     TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://cognitiveservices.azure.com/' -H 'Metadata: true' | jq -r '.access_token')
@@ -175,8 +193,7 @@ runcmd:
     MOTDEOF
   
   # Start OpenClaw automatically
-  - cd /opt/openclaw && docker compose pull
-  - cd /opt/openclaw && docker compose up -d
+  - systemctl start openclaw
 
 final_message: "OpenClaw deployment complete! Connect via Azure Bastion to get started."
 '''

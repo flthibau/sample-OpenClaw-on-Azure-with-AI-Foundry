@@ -272,29 +272,33 @@ Error: 429 Rate limit exceeded
 
 ## OpenClaw Issues
 
-### ❌ Docker Not Running
+### ❌ OpenClaw Service Not Running
 
 **Symptoms:**
 ```
-Cannot connect to the Docker daemon
+Failed to connect to OpenClaw
 ```
 
 **Solutions:**
 
-1. **Check Docker status:**
+1. **Check service status:**
    ```bash
-   sudo systemctl status docker
+   sudo systemctl status openclaw
    ```
 
-2. **Start Docker:**
+2. **Start the service:**
    ```bash
-   sudo systemctl start docker
+   sudo systemctl start openclaw
    ```
 
-3. **Add user to docker group:**
+3. **Check logs for errors:**
    ```bash
-   sudo usermod -aG docker $USER
-   # Log out and back in
+   journalctl -u openclaw --no-pager -n 50
+   ```
+
+4. **Restart if stuck:**
+   ```bash
+   sudo systemctl restart openclaw
    ```
 
 ### ❌ OpenClaw Not Found
@@ -321,29 +325,30 @@ bash: cd: /home/user/openclaw: No such file or directory
    git clone https://github.com/openclaw/openclaw.git ~/openclaw
    ```
 
-### ❌ Docker Compose Errors
+### ❌ OpenClaw Service Errors
 
 **Symptoms:**
 ```
-ERROR: Couldn't connect to Docker daemon
+ERROR: OpenClaw failed to start
 ```
 
 **Solutions:**
 
-1. **Use new Docker Compose syntax:**
+1. **Check detailed logs:**
    ```bash
-   docker compose up -d  # Not docker-compose
+   journalctl -u openclaw -f
    ```
 
-2. **Check Docker Compose plugin:**
+2. **Check if port is already in use:**
    ```bash
-   docker compose version
+   sudo lsof -i :18789
    ```
 
-3. **Reinstall if needed:**
+3. **Kill orphan processes and restart:**
    ```bash
-   sudo apt-get update
-   sudo apt-get install docker-compose-plugin
+   sudo systemctl stop openclaw
+   pkill -f openclaw-gateway || true
+   sudo systemctl start openclaw
    ```
 
 ---
@@ -372,9 +377,10 @@ ERROR: Couldn't connect to Docker daemon
      --size Standard_D4s_v5
    ```
 
-4. **Clear Docker resources:**
+4. **Check system resources:**
    ```bash
-   docker system prune -af
+   df -h
+   free -m
    ```
 
 ### ❌ High Latency to AI Foundry

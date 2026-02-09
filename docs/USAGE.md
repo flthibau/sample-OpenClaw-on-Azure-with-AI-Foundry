@@ -227,36 +227,32 @@ Use the provided helper script:
 ```
 
 This will:
-1. Check prerequisites (Docker, configuration)
-2. Pull the latest OpenClaw image
-3. Start all services
-4. Show the access URL
+1. Check prerequisites (configuration)
+2. Start all services
+3. Show the access URL
 
-### Manual Start with Docker Compose
+### Manual Start
 
 ```bash
-cd ~/openclaw
-
-# Start in background
-docker compose up -d
+# Start OpenClaw service
+sudo systemctl start openclaw
 
 # View logs
-docker compose logs -f
+journalctl -u openclaw -f
 
 # Stop
-docker compose down
+sudo systemctl stop openclaw
 ```
 
 ### Verify OpenClaw is Running
 
 ```bash
-# Check containers
-docker compose ps
+# Check service status
+systemctl status openclaw
 
 # Expected output:
-# NAME                  STATUS              PORTS
-# openclaw-web          Up 2 minutes        0.0.0.0:18789->18789/tcp
-# openclaw-gateway      Up 2 minutes        0.0.0.0:18790->18790/tcp
+# ● openclaw.service - OpenClaw Gateway Service
+#      Active: active (running)
 ```
 
 ### Access the Web Interface
@@ -307,7 +303,7 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 3. Restart OpenClaw:
 
 ```bash
-docker compose restart
+sudo systemctl restart openclaw
 ```
 
 4. Start a chat with your bot on Telegram!
@@ -522,17 +518,17 @@ CUSTOM_TOOLS_PATH=/home/azureuser/openclaw/tools
 
 ## Monitoring and Logs
 
-### View Container Logs
+### View Logs
 
 ```bash
-# All logs
-docker compose logs -f
-
-# Specific service
-docker compose logs -f openclaw-web
+# Follow logs in real-time
+journalctl -u openclaw -f
 
 # Last 100 lines
-docker compose logs --tail 100
+journalctl -u openclaw -n 100
+
+# Logs since last boot
+journalctl -u openclaw -b
 ```
 
 ### System Metrics
@@ -543,9 +539,6 @@ htop
 
 # Disk usage
 df -h
-
-# Docker stats
-docker stats
 ```
 
 ### Azure Monitor Integration
@@ -557,7 +550,7 @@ Enable Azure Monitor for the VM in Azure Portal:
 
 ### Log Locations
 
-- OpenClaw logs: `docker compose logs`
+- OpenClaw logs: `journalctl -u openclaw`
 - Cloud-init logs: `/var/log/cloud-init-output.log`
 - System logs: `/var/log/syslog`
 
@@ -571,19 +564,19 @@ Enable Azure Monitor for the VM in Azure Portal:
 cd ~/openclaw
 
 # Stop current instance
-docker compose down
+sudo systemctl stop openclaw
 
 # Pull latest code
 git pull origin main
 
-# Pull latest images
-docker compose pull
+# Install dependencies
+pnpm install
 
 # Start updated version
-docker compose up -d
+sudo systemctl start openclaw
 
 # Verify
-docker compose ps
+systemctl status openclaw
 ```
 
 ### Backup Before Update
@@ -592,8 +585,8 @@ docker compose ps
 # Backup configuration
 cp .env .env.backup
 
-# Backup data (if using persistent storage)
-docker compose exec openclaw-web tar -czf /backup/data.tar.gz /app/data
+# Backup data
+tar -czf ~/openclaw-backup-$(date +%Y%m%d).tar.gz ~/openclaw/data
 ```
 
 ### Rollback
@@ -606,7 +599,7 @@ cp .env.backup .env
 git checkout <previous-commit>
 
 # Restart
-docker compose up -d
+sudo systemctl restart openclaw
 ```
 
 ---
@@ -616,37 +609,38 @@ docker compose up -d
 ### Restart OpenClaw
 
 ```bash
-docker compose restart
+sudo systemctl restart openclaw
 ```
 
 ### Check Status
 
 ```bash
-docker compose ps
-docker compose logs --tail 50
+systemctl status openclaw
+journalctl -u openclaw --no-pager -n 50
 ```
 
 ### Clear Conversation History
 
 ```bash
-docker compose exec openclaw-web npm run clear-history
+cd ~/openclaw && npm run clear-history
 ```
 
 ### Stop OpenClaw
 
 ```bash
-docker compose down
+sudo systemctl stop openclaw
 ```
 
 ### Factory Reset
 
 ```bash
 cd ~/openclaw
-docker compose down -v  # Remove volumes
+sudo systemctl stop openclaw
+rm -rf data/
 rm .env
 cp .env.example .env
 # Reconfigure as needed
-docker compose up -d
+sudo systemctl start openclaw
 ```
 
 ---

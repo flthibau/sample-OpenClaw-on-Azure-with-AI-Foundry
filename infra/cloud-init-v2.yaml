@@ -16,18 +16,16 @@ packages:
   - jq
 
 runcmd:
-  # === DOCKER INSTALLATION ===
-  - mkdir -p /etc/apt/keyrings
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-  - systemctl enable docker
-  - systemctl start docker
+  # === NODE.JS INSTALLATION ===
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+  - npm install -g pnpm
   
   # === GET VM USERNAME ===
   - export VMUSER=$(getent passwd 1000 | cut -d: -f1)
-  - usermod -aG docker $VMUSER
+  
+  # === INSTALL AZURE CLI ===
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
   
   # === CREATE OPENCLAW DIRECTORY ===
   - mkdir -p /home/$VMUSER/openclaw/data
@@ -37,40 +35,6 @@ runcmd:
   - export AZURE_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-https://ai-openclaw-dev.openai.azure.com/}"
   - export AZURE_DEPLOYMENT="${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-deployment}"
   
-  # === CREATE DOCKER COMPOSE FILE ===
-  - |
-    cat > /home/$VMUSER/openclaw/docker-compose.yml << 'COMPOSE_EOF'
-    version: '3.8'
-    services:
-      openclaw:
-        image: fourplayers/openclaw:latest
-        container_name: openclaw
-        restart: unless-stopped
-        environment:
-          - OPENCLAW_GATEWAY_HOST=0.0.0.0
-          - OPENCLAW_GATEWAY_PORT=18789
-          - OPENCLAW_GATEWAY_PASSWORD=${GATEWAY_PASSWORD}
-          - OPENCLAW_TLS_ENABLED=false
-          - AZURE_OPENAI_ENDPOINT=${AZURE_ENDPOINT}
-          - AZURE_OPENAI_DEPLOYMENT=${AZURE_DEPLOYMENT}
-          - AZURE_OPENAI_API_VERSION=2024-10-01-preview
-        volumes:
-          - ./data:/home/node/.openclaw:rw
-        ports:
-          - "18789:18789"
-        cap_add:
-          - SYS_ADMIN
-        security_opt:
-          - seccomp=unconfined
-        shm_size: '2gb'
-        healthcheck:
-          test: ["CMD", "wget", "-q", "--spider", "http://localhost:18789/health"]
-          interval: 30s
-          timeout: 10s
-          retries: 3
-          start_period: 120s
-    COMPOSE_EOF
-  
   # === CREATE .ENV FILE ===
   - |
     GATEWAY_PASSWORD=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
@@ -78,24 +42,48 @@ runcmd:
     GATEWAY_PASSWORD=${GATEWAY_PASSWORD}!
     AZURE_ENDPOINT=https://ai-openclaw-dev.openai.azure.com/
     AZURE_DEPLOYMENT=gpt-4o-deployment
+    PORT=18789
     EOF
     echo "${GATEWAY_PASSWORD}!" > /home/$VMUSER/openclaw/gateway-password.txt
+  
+  # === CLONE AND INSTALL OPENCLAW ===
+  - git clone https://github.com/openclaw/openclaw.git /home/$VMUSER/openclaw/app 2>/dev/null || true
+  - cd /home/$VMUSER/openclaw/app && pnpm install 2>/dev/null || npm install 2>/dev/null || true
   
   # === FIX PERMISSIONS ===
   - chown -R $VMUSER:$VMUSER /home/$VMUSER/openclaw
   
-  # === PULL AND START OPENCLAW ===
-  - cd /home/$VMUSER/openclaw && docker compose pull
-  - cd /home/$VMUSER/openclaw && docker compose up -d
+  # === CREATE SYSTEMD SERVICE ===
+  - |
+    cat > /etc/systemd/system/openclaw.service << 'SVCEOF'
+    [Unit]
+    Description=OpenClaw Gateway Service
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=$VMUSER
+    WorkingDirectory=/home/$VMUSER/openclaw/app
+    EnvironmentFile=/home/$VMUSER/openclaw/.env
+    ExecStart=/usr/bin/npx openclaw gateway start
+    Restart=on-failure
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+    SVCEOF
+  - systemctl daemon-reload
+  - systemctl enable openclaw
+  - systemctl start openclaw
   
   # === CREATE HELPER SCRIPTS ===
   - |
     cat > /home/$VMUSER/openclaw/start.sh << 'SCRIPT_EOF'
     #!/bin/bash
     cd ~/openclaw
-    docker compose up -d
+    sudo systemctl start openclaw
     echo "✅ OpenClaw started!"
-    docker compose ps
+    systemctl status openclaw --no-pager
     SCRIPT_EOF
     chmod +x /home/$VMUSER/openclaw/start.sh
   
@@ -103,7 +91,7 @@ runcmd:
     cat > /home/$VMUSER/openclaw/stop.sh << 'SCRIPT_EOF'
     #!/bin/bash
     cd ~/openclaw
-    docker compose down
+    sudo systemctl stop openclaw
     echo "⏹️ OpenClaw stopped"
     SCRIPT_EOF
     chmod +x /home/$VMUSER/openclaw/stop.sh
@@ -111,8 +99,7 @@ runcmd:
   - |
     cat > /home/$VMUSER/openclaw/logs.sh << 'SCRIPT_EOF'
     #!/bin/bash
-    cd ~/openclaw
-    docker compose logs -f --tail 100
+    journalctl -u openclaw -f --no-pager -n 100
     SCRIPT_EOF
     chmod +x /home/$VMUSER/openclaw/logs.sh
   
@@ -121,7 +108,7 @@ runcmd:
     #!/bin/bash
     echo "🦞 OpenClaw Status"
     echo "=================="
-    docker compose -f ~/openclaw/docker-compose.yml ps
+    systemctl status openclaw --no-pager
     echo ""
     echo "🔑 Gateway Password:"
     cat ~/openclaw/gateway-password.txt

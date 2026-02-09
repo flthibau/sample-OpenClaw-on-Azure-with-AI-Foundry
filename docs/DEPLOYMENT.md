@@ -158,13 +158,13 @@ AZURE_OPENAI_DEPLOYMENT=gpt-5
 ./start.sh
 ```
 
-Or manually with Docker Compose:
+Or manually with systemctl:
 
 ```bash
-docker compose up -d
+sudo systemctl start openclaw
 
 # View logs
-docker compose logs -f
+journalctl -u openclaw -f
 ```
 
 ## Deployment Architecture

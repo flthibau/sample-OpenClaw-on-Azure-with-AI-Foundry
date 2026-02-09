@@ -307,7 +307,7 @@ cd sample-OpenClaw-on-Azure-with-AI-Foundry
 ```
 
 **What gets deployed automatically:**
-- ✅ Azure VM with Docker, Node.js, and OpenClaw installed
+- ✅ Azure VM with Node.js and OpenClaw installed
 - ✅ Azure AI Foundry with GPT-5 model deployed
 - ✅ Azure Bastion for secure access (no public IP)
 - ✅ Managed Identity with role assignments
@@ -334,7 +334,7 @@ After deployment completes, the script displays your credentials.
 ./start.sh
 
 # View logs
-docker compose logs -f
+journalctl -u openclaw -f
 ```
 
 ##  Cost Estimate

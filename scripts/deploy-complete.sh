@@ -3,7 +3,7 @@
 # OpenClaw on Azure - Fully Automated Deployment
 # 
 # Deploys the complete OpenClaw environment with zero manual steps:
-# - Azure VM with Docker and OpenClaw pre-installed
+# - Azure VM with Node.js and OpenClaw pre-installed
 # - Azure AI Foundry (OpenAI) with GPT-5 model deployed
 # - Azure Bastion for secure access
 # - Managed Identity with proper role assignments
@@ -108,7 +108,7 @@ cat << 'EOF'
 ║   🤖 OpenClaw on Azure - Fully Automated Deployment 🤖                    ║
 ║                                                                           ║
 ║   This script will deploy:                                                ║
-║   ✅ Azure Virtual Machine with Docker & OpenClaw                        ║
+║   ✅ Azure Virtual Machine with Node.js & OpenClaw                       ║
 ║   ✅ Azure AI Foundry with AI model                                      ║
 ║   ✅ Azure Bastion for secure access                                     ║
 ║   ✅ Managed Identity with role assignments                              ║
@@ -269,7 +269,7 @@ echo -e "${CYAN}💡 Quick Commands (once connected):${NC}"
 echo ""
 echo "   ./status.sh    - Check OpenClaw & AI connection status"
 echo "   ./start.sh     - Restart OpenClaw if needed"
-echo "   docker compose logs -f    - View live logs"
+echo "   journalctl -u openclaw -f  - View live logs"
 echo ""
 
 # Save credentials to file

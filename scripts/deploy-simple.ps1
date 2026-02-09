@@ -57,39 +57,30 @@ $CloudInit = @"
 #cloud-config
 package_update: true
 packages:
-  - docker.io
-  - docker-compose
+  - curl
+  - git
+  - jq
 
 runcmd:
-  - systemctl enable docker
-  - systemctl start docker
-  - usermod -aG docker $AdminUsername
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+  - npm install -g pnpm
+  - git clone https://github.com/openclaw/openclaw.git /home/$AdminUsername/openclaw
+  - cd /home/$AdminUsername/openclaw && pnpm install
   - mkdir -p /home/$AdminUsername/openclaw/data
   - |
-    cat > /home/$AdminUsername/openclaw/docker-compose.yml << 'COMPOSEEOF'
-    version: '3.8'
-    services:
-      openclaw:
-        image: fourplayers/openclaw:latest
-        container_name: openclaw
-        restart: unless-stopped
-        environment:
-          - OPENCLAW_GATEWAY_PASSWORD=$GatewayPassword
-          - OPENCLAW_TLS_ENABLED=false
-          - AZURE_OPENAI_ENDPOINT=$AiEndpoint
-          - AZURE_OPENAI_DEPLOYMENT=gpt-4o
-          - AZURE_OPENAI_API_VERSION=2024-10-01-preview
-        volumes:
-          - ./data:/home/node/.openclaw
-        ports:
-          - "18789:18789"
-        shm_size: '2gb'
-    COMPOSEEOF
+    cat > /home/$AdminUsername/openclaw/.env << 'ENVEOF'
+    OPENCLAW_GATEWAY_PASSWORD=$GatewayPassword
+    OPENCLAW_TLS_ENABLED=false
+    AZURE_OPENAI_ENDPOINT=$AiEndpoint
+    AZURE_OPENAI_DEPLOYMENT=gpt-4o
+    AZURE_OPENAI_API_VERSION=2024-10-01-preview
+    PORT=18789
+    ENVEOF
   - chown -R $AdminUsername`:$AdminUsername /home/$AdminUsername/openclaw
-  - cd /home/$AdminUsername/openclaw && docker-compose pull
-  - cd /home/$AdminUsername/openclaw && docker-compose up -d
   - echo "$GatewayPassword" > /home/$AdminUsername/openclaw/password.txt
   - chown $AdminUsername`:$AdminUsername /home/$AdminUsername/openclaw/password.txt
+  - cd /home/$AdminUsername/openclaw && npx openclaw gateway start
 
 final_message: "OpenClaw ready!"
 "@

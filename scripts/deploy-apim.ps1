@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 #
 # OpenClaw on Azure - Déploiement complet avec APIM
-# Installation native (sans Docker) + Azure AI Foundry + APIM
+# Installation native + Azure AI Foundry + APIM
 #
 
 param(

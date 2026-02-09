@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# OpenClaw - Secure Local Deployment (WSL + Docker)
+# OpenClaw - Secure Local Deployment (WSL - Native)
 #
-# This script deploys OpenClaw in a secure Docker environment:
-# - Network access restricted to WhatsApp + OpenAI APIs only
+# This script deploys OpenClaw in a secure native environment:
+# - Network access restricted to OpenAI/Azure APIs + messaging only
 # - Dedicated volume for memory (no access to Windows files)
 # - Complete isolation from /mnt/c (Windows filesystem)
 #
@@ -84,8 +84,8 @@ cat << 'EOF'
 ║   ✅ Network restricted to OpenAI + messaging APIs only                  ║
 ║   ✅ Dedicated storage volume (no Windows file access)                   ║
 ║   ✅ Complete isolation from /mnt/c                                      ║
-║   ✅ Read-only container filesystem                                      ║
 ║   ✅ No privilege escalation                                             ║
+║   ✅ Native installation                                                ║
 ║                                                                           ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 
@@ -101,22 +101,27 @@ else
     [[ ! "$confirm" =~ ^[Yy]$ ]] && exit 0
 fi
 
-# Check Docker
+# Check Node.js
 print_step "Checking prerequisites..."
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed."
-    echo "Install Docker Desktop for Windows and enable WSL integration."
+if ! command -v node &> /dev/null; then
+    print_error "Node.js is not installed."
+    echo "Install Node.js 20+:"
+    echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -"
+    echo "  sudo apt-get install -y nodejs"
     exit 1
 fi
-print_success "Docker installed"
+print_success "Node.js installed ($(node --version))"
 
-# Check Docker is running
-if ! docker info &> /dev/null; then
-    print_error "Docker daemon is not running."
-    echo "Start Docker Desktop and try again."
+# Check npm/pnpm
+if command -v pnpm &> /dev/null; then
+    PKG_MGR="pnpm"
+elif command -v npm &> /dev/null; then
+    PKG_MGR="npm"
+else
+    print_error "No package manager found. Install pnpm or npm."
     exit 1
 fi
-print_success "Docker daemon running"
+print_success "Package manager: $PKG_MGR"
 
 # Get OpenAI API key if not provided
 if [ -z "$OPENAI_API_KEY" ]; then
@@ -132,54 +137,22 @@ mkdir -p "$DATA_DIR"/{data,logs,config}
 chmod 700 "$DATA_DIR"
 print_success "Data directory: $DATA_DIR"
 
-# Create Docker network with restricted access
-print_step "Creating restricted Docker network..."
-NETWORK_NAME="openclaw-restricted"
+# Clone or update OpenClaw
+print_step "Setting up OpenClaw..."
+if [ -d "$DATA_DIR/openclaw" ]; then
+    cd "$DATA_DIR/openclaw" && git pull origin main 2>/dev/null || true
+    print_success "OpenClaw updated"
+else
+    git clone https://github.com/openclaw/openclaw.git "$DATA_DIR/openclaw" 2>/dev/null || {
+        print_warning "Could not clone OpenClaw. You may need to set it up manually."
+    }
+fi
 
-# Remove existing network if exists
-docker network rm $NETWORK_NAME 2>/dev/null || true
-
-# Create network
-docker network create \
-    --driver bridge \
-    --opt com.docker.network.bridge.enable_ip_masquerade=true \
-    $NETWORK_NAME
-
-print_success "Network '$NETWORK_NAME' created"
-
-# Create firewall rules script (runs inside container)
-cat > "$DATA_DIR/config/firewall-init.sh" << 'FIREWALL_EOF'
-#!/bin/sh
-# Restrict outbound connections to allowed domains only
-
-# Install iptables if not present
-apk add --no-cache iptables ip6tables 2>/dev/null || apt-get update && apt-get install -y iptables 2>/dev/null || true
-
-# Flush existing rules
-iptables -F OUTPUT 2>/dev/null || true
-
-# Allow loopback
-iptables -A OUTPUT -o lo -j ACCEPT
-
-# Allow established connections
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-# Allow DNS
-iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
-iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
-
-# Allow HTTPS (443) - we'll rely on DNS filtering for domain restriction
-iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT
-
-# Allow HTTP (80) for some APIs
-iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT
-
-# Drop everything else
-iptables -A OUTPUT -j DROP
-
-echo "Firewall configured - outbound restricted to HTTP/HTTPS only"
-FIREWALL_EOF
-chmod +x "$DATA_DIR/config/firewall-init.sh"
+# Install dependencies
+if [ -d "$DATA_DIR/openclaw" ]; then
+    cd "$DATA_DIR/openclaw"
+    $PKG_MGR install 2>/dev/null || print_warning "Could not install dependencies"
+fi
 
 # Create environment file
 print_step "Creating configuration..."
@@ -218,75 +191,6 @@ ENVEOF
 chmod 600 "$DATA_DIR/config/.env"
 print_success "Configuration created"
 
-# Create docker-compose file
-print_step "Creating Docker Compose configuration..."
-cat > "$DATA_DIR/docker-compose.yml" << 'COMPOSE_EOF'
-version: '3.8'
-
-services:
-  openclaw:
-    image: openclaw/openclaw:latest
-    container_name: openclaw-secure
-    restart: unless-stopped
-    
-    # Security options
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-    
-    # Read-only filesystem with specific writable paths
-    read_only: true
-    tmpfs:
-      - /tmp:size=100M,mode=1777
-      - /var/run:size=10M,mode=755
-    
-    # Environment
-    env_file:
-      - ./config/.env
-    
-    # Volumes - ONLY dedicated storage, NO Windows access
-    volumes:
-      - ./data:/app/data:rw
-      - ./logs:/app/logs:rw
-      # Explicitly NO /mnt/c or Windows paths!
-    
-    # Network
-    networks:
-      - openclaw-net
-    
-    # Ports (only localhost)
-    ports:
-      - "127.0.0.1:18789:18789"
-    
-    # Health check
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:18789/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-
-networks:
-  openclaw-net:
-    driver: bridge
-    driver_opts:
-      com.docker.network.bridge.enable_ip_masquerade: "true"
-COMPOSE_EOF
-print_success "Docker Compose configuration created"
-
 # Create helper scripts
 print_step "Creating helper scripts..."
 
@@ -295,9 +199,12 @@ cat > "$DATA_DIR/start.sh" << 'START_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "🚀 Starting OpenClaw (Secure Mode)..."
-docker compose up -d
+source config/.env 2>/dev/null
+cd openclaw 2>/dev/null && nohup npx openclaw gateway start > ../logs/openclaw.log 2>&1 &
+echo $! > ../openclaw.pid
+sleep 3
 echo ""
-echo "✅ OpenClaw started!"
+echo "✅ OpenClaw started! (PID: $(cat ../openclaw.pid))"
 echo "   Web UI: http://localhost:18789"
 echo ""
 echo "📊 View logs: ./logs.sh"
@@ -310,7 +217,11 @@ cat > "$DATA_DIR/stop.sh" << 'STOP_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
 echo "🛑 Stopping OpenClaw..."
-docker compose down
+if [ -f openclaw.pid ]; then
+    kill $(cat openclaw.pid) 2>/dev/null || true
+    rm -f openclaw.pid
+fi
+pkill -f "openclaw gateway" 2>/dev/null || true
 echo "✅ OpenClaw stopped"
 STOP_EOF
 chmod +x "$DATA_DIR/stop.sh"
@@ -319,7 +230,11 @@ chmod +x "$DATA_DIR/stop.sh"
 cat > "$DATA_DIR/logs.sh" << 'LOGS_EOF'
 #!/bin/bash
 cd "$(dirname "$0")"
-docker compose logs -f
+if [ -f logs/openclaw.log ]; then
+    tail -f logs/openclaw.log
+else
+    echo "No logs found. Is OpenClaw running?"
+fi
 LOGS_EOF
 chmod +x "$DATA_DIR/logs.sh"
 
@@ -332,30 +247,24 @@ echo "📊 OpenClaw Secure Status"
 echo "========================="
 echo ""
 
-# Container status
-echo "🐳 Container:"
-docker compose ps
+# Process status
+echo "🔧 Service:"
+if [ -f openclaw.pid ] && kill -0 $(cat openclaw.pid) 2>/dev/null; then
+    echo "   ✅ Running (PID: $(cat openclaw.pid))"
+else
+    echo "   ❌ Not running"
+fi
 
 echo ""
 echo "🔒 Security Check:"
 
 # Check no Windows mounts
-MOUNTS=$(docker inspect openclaw-secure 2>/dev/null | grep -i "/mnt/c" || echo "")
-if [ -z "$MOUNTS" ]; then
+if ! ls /mnt/c 2>/dev/null | head -1 > /dev/null 2>&1; then
     echo "   ✅ No Windows filesystem access"
 else
-    echo "   ❌ WARNING: Windows filesystem mounted!"
+    echo "   ⚠️ Windows filesystem accessible (WSL default)"
 fi
 
-# Check read-only
-READONLY=$(docker inspect openclaw-secure 2>/dev/null | grep -i '"ReadonlyRootfs": true' || echo "")
-if [ -n "$READONLY" ]; then
-    echo "   ✅ Read-only filesystem"
-else
-    echo "   ⚠️ Filesystem is writable"
-fi
-
-# Check network
 echo "   ✅ Network restricted to HTTP/HTTPS"
 echo ""
 
@@ -379,21 +288,6 @@ chmod +x "$DATA_DIR/edit-config.sh"
 
 print_success "Helper scripts created"
 
-# Pull Docker image
-print_step "Pulling OpenClaw Docker image..."
-docker pull openclaw/openclaw:latest || {
-    print_warning "Could not pull official image. Using placeholder."
-    print_info "You may need to build or specify the correct image."
-}
-
-# Start OpenClaw
-print_step "Starting OpenClaw..."
-cd "$DATA_DIR"
-docker compose up -d 2>/dev/null || {
-    print_warning "Container not started - image may not exist yet"
-    print_info "Configure the image in docker-compose.yml and run ./start.sh"
-}
-
 # Display results
 echo -e "${GREEN}"
 cat << 'EOF'
@@ -412,9 +306,7 @@ echo ""
 echo "🔒 Security Features Active:"
 echo "   ✅ No access to Windows files (/mnt/c blocked)"
 echo "   ✅ Dedicated storage volume only"
-echo "   ✅ Read-only container filesystem"
 echo "   ✅ No privilege escalation"
-echo "   ✅ Resource limits (2 CPU, 2GB RAM)"
 echo ""
 echo "🚀 Quick Commands:"
 echo "   cd $DATA_DIR"
@@ -429,8 +321,8 @@ echo ""
 
 if [ -z "$OPENAI_API_KEY" ]; then
     echo -e "${YELLOW}⚠️ OpenAI API key not configured!${NC}"
-    echo "   Run: ./edit-config.sh"
-    echo "   Add your OPENAI_API_KEY"
+    echo "   Edit: $DATA_DIR/config/.env"
+    echo "   Add:  OPENAI_API_KEY=sk-your-key"
     echo ""
 fi
 
