@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 #
-# OpenClaw on Azure - Déploiement 100% automatisé
-# Version 3.0 - Tout fonctionne sans intervention manuelle
+# OpenClaw on Azure - 100% Automated Deployment
+# Version 3.0 - Everything works without manual intervention
 #
 
 param(
@@ -15,18 +15,18 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║          🦞 OpenClaw on Azure - Déploiement Auto 🦞            ║" -ForegroundColor Cyan
+Write-Host "║          🦞 OpenClaw on Azure - Auto Deployment 🦞              ║" -ForegroundColor Cyan
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# Générer un mot de passe sécurisé
+# Generate a secure password
 $Password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_}) + "!"
 $GatewayPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 12 | ForEach-Object {[char]$_}) + "!"
 
-Write-Host "📦 Étape 1/6: Création du Resource Group..." -ForegroundColor Yellow
+Write-Host "📦 Step 1/6: Creating the Resource Group..." -ForegroundColor Yellow
 az group create -n $ResourceGroup -l $Location -o none
 
-Write-Host "🔐 Étape 2/6: Création d'Azure OpenAI..." -ForegroundColor Yellow
+Write-Host "🔐 Step 2/6: Creating Azure OpenAI..." -ForegroundColor Yellow
 az cognitiveservices account create `
     -n "ai-openclaw" `
     -g $ResourceGroup `
@@ -36,7 +36,7 @@ az cognitiveservices account create `
     --custom-domain "ai-openclaw" `
     -o none 2>$null
 
-# Déployer le modèle GPT-4o
+# Deploy the GPT-4o model
 az cognitiveservices account deployment create `
     -n "ai-openclaw" `
     -g $ResourceGroup `
@@ -50,9 +50,9 @@ az cognitiveservices account deployment create `
 
 $AiEndpoint = "https://ai-openclaw.openai.azure.com/"
 
-Write-Host "🖥️ Étape 3/6: Création de la VM avec cloud-init..." -ForegroundColor Yellow
+Write-Host "🖥️ Step 3/6: Creating the VM with cloud-init..." -ForegroundColor Yellow
 
-# Cloud-init intégré
+# Integrated cloud-init
 $CloudInit = @"
 #cloud-config
 package_update: true
@@ -88,7 +88,7 @@ final_message: "OpenClaw ready!"
 $CloudInitPath = "$env:TEMP\cloud-init-openclaw.yaml"
 $CloudInit | Out-File -FilePath $CloudInitPath -Encoding utf8 -Force
 
-# Créer la VM avec IP publique
+# Create the VM with public IP
 az vm create `
     -g $ResourceGroup `
     -n $VmName `
@@ -101,7 +101,7 @@ az vm create `
     --nsg-rule SSH `
     -o none
 
-Write-Host "🔓 Étape 4/6: Configuration du NSG pour OpenClaw..." -ForegroundColor Yellow
+Write-Host "🔓 Step 4/6: Configuring NSG for OpenClaw..." -ForegroundColor Yellow
 $NsgName = "${VmName}NSG"
 az network nsg rule create `
     --nsg-name $NsgName `
@@ -113,7 +113,7 @@ az network nsg rule create `
     --destination-port-ranges 18789 `
     -o none
 
-Write-Host "🔑 Étape 5/6: Configuration des permissions Azure OpenAI..." -ForegroundColor Yellow
+Write-Host "🔑 Step 5/6: Configuring Azure OpenAI permissions..." -ForegroundColor Yellow
 $VmPrincipalId = az vm identity assign -g $ResourceGroup -n $VmName --query systemAssignedIdentity -o tsv
 $AiResourceId = az cognitiveservices account show -n "ai-openclaw" -g $ResourceGroup --query id -o tsv
 
@@ -123,35 +123,35 @@ az role assignment create `
     --scope $AiResourceId `
     -o none 2>$null
 
-Write-Host "⏳ Étape 6/6: Attente du démarrage d'OpenClaw (3 minutes)..." -ForegroundColor Yellow
+Write-Host "⏳ Step 6/6: Waiting for OpenClaw to start (3 minutes)..." -ForegroundColor Yellow
 Start-Sleep -Seconds 180
 
-# Récupérer l'IP publique
+# Retrieve the public IP
 $PublicIP = az vm show -g $ResourceGroup -n $VmName -d --query publicIps -o tsv
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║              🎉 DÉPLOIEMENT TERMINÉ ! 🎉                       ║" -ForegroundColor Green
+Write-Host "║              🎉 DEPLOYMENT COMPLETE! 🎉                        ║" -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 Write-Host "🌐 OpenClaw WebChat:" -ForegroundColor Cyan
 Write-Host "   http://${PublicIP}:18789" -ForegroundColor White
 Write-Host ""
-Write-Host "🔑 Mot de passe Gateway:" -ForegroundColor Cyan
+Write-Host "🔑 Gateway Password:" -ForegroundColor Cyan
 Write-Host "   $GatewayPassword" -ForegroundColor White
 Write-Host ""
-Write-Host "🖥️ SSH (si besoin):" -ForegroundColor Cyan
+Write-Host "🖥️ SSH (if needed):" -ForegroundColor Cyan
 Write-Host "   ssh ${AdminUsername}@${PublicIP}" -ForegroundColor White
 Write-Host "   Password: $Password" -ForegroundColor White
 Write-Host ""
-Write-Host "💰 Pour arrêter et économiser:" -ForegroundColor Yellow
+Write-Host "💰 To stop and save costs:" -ForegroundColor Yellow
 Write-Host "   az vm deallocate -g $ResourceGroup -n $VmName" -ForegroundColor White
 Write-Host ""
-Write-Host "🗑️ Pour supprimer:" -ForegroundColor Yellow
+Write-Host "🗑️ To delete:" -ForegroundColor Yellow
 Write-Host "   az group delete -n $ResourceGroup --yes" -ForegroundColor White
 Write-Host ""
 
-# Sauvegarder les credentials
+# Save credentials
 $CredFile = "credentials-$ResourceGroup.txt"
 @"
 OpenClaw on Azure - Credentials
@@ -171,7 +171,7 @@ Resource Group: $ResourceGroup
 VM Name: $VmName
 "@ | Out-File -FilePath $CredFile -Encoding utf8
 
-Write-Host "📄 Credentials sauvegardés dans: $CredFile" -ForegroundColor Gray
+Write-Host "📄 Credentials saved in: $CredFile" -ForegroundColor Gray
 
-# Ouvrir dans le navigateur
+# Open in browser
 Start-Process "http://${PublicIP}:18789"

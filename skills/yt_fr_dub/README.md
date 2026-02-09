@@ -1,51 +1,51 @@
-# yt_fr_dub — YouTube → doublage FR (OpenClaw skill)
+# yt_fr_dub — YouTube → French Dub (OpenClaw skill)
 
-Objectif : partir d’une **URL YouTube** et produire un **MP4** avec la **piste audio doublée en français**.
+Goal: take a **YouTube URL** and produce an **MP4** with a **French dubbed audio track**.
 
-## Vue d’ensemble (pipeline)
+## Overview (pipeline)
 
-1. **Download vidéo** (yt-dlp) ou **entrée MP4 locale** (`--input`)
+1. **Download video** (yt-dlp) or **local MP4 input** (`--input`)
 2. **Transcription** (STT via AI Foundry / OpenAI-compatible)
-3. **Traduction en français** (chat via AI Foundry / OpenAI-compatible)
-4. **Synthèse vocale FR (TTS)** via **Azure Speech** (SSML)
-5. **Remux** dans un MP4 final (ffmpeg)
+3. **French translation** (chat via AI Foundry / OpenAI-compatible)
+4. **French TTS (Text-to-Speech)** via **Azure Speech** (SSML)
+5. **Remux** into a final MP4 (ffmpeg)
 
-> Important : la partie **download YouTube** peut être bloquée par l’anti-bot (*“Sign in to confirm you’re not a bot”*). Dans ce cas, il faut fournir des **cookies** à yt-dlp (voir section dédiée).
+> Important: the **YouTube download** step may be blocked by anti-bot measures (*"Sign in to confirm you're not a bot"*). In that case, you need to provide **cookies** to yt-dlp (see dedicated section).
 
-## Prérequis
+## Prerequisites
 
-- Node.js (projet déjà packagé)
+- Node.js (project already packaged)
 - `ffmpeg` / `ffprobe`
 - `yt-dlp`
 
-## Fichiers clés
+## Key Files
 
-- `run.js` : script principal (download → STT → translate → TTS → remux)
-- `SKILL.md` : description du skill pour OpenClaw
-- `README_SETUP.md` : notes de setup (historique)
-- `STATUS.md` : état courant / next steps (à tenir à jour)
+- `run.js`: main script (download → STT → translate → TTS → remux)
+- `SKILL.md`: skill description for OpenClaw
+- `README_SETUP.md`: setup notes (historical)
+- `STATUS.md`: current status / next steps (keep up to date)
 
-## Utilisation (dev / test)
+## Usage (dev / test)
 
-### Test basique
+### Basic Test
 
 ```bash
 cd skills/yt_fr_dub
 node run.js "https://youtu.be/<id>" --out out/french_dub.mp4 --voice fr-FR-DeniseNeural
 ```
 
-### Utiliser un MP4 local en entrée (skip yt-dlp)
+### Use a local MP4 as input (skip yt-dlp)
 
 ```bash
 node run.js "https://youtu.be/<id>" --input /path/to/input.mp4 --out out/french_dub.mp4
 ```
 
-### Upload Azure Blob (retourne une URL SAS dans stdout)
+### Upload to Azure Blob (returns a SAS URL in stdout)
 
-✅ Par défaut, le script uploade le résultat sur Blob et retourne une URL SAS.
-Pour désactiver : `--no-blobUpload`.
+✅ By default, the script uploads the result to Blob and returns a SAS URL.
+To disable: `--no-blobUpload`.
 
-Prérequis : la VM doit pouvoir faire `az login --identity` et avoir le rôle **Storage Blob Data Contributor**.
+Prerequisites: the VM must be able to run `az login --identity` and have the **Storage Blob Data Contributor** role.
 
 ```bash
 node run.js "https://youtu.be/<id>" \
@@ -60,35 +60,35 @@ node run.js "https://youtu.be/<id>" \
 
 ## YouTube anti-bot & cookies (important)
 
-Note : sur YouTube récent, `yt-dlp` peut nécessiter un runtime JS + composants EJS.
-Dans nos tests, ça marche avec :
+Note: on recent YouTube, `yt-dlp` may require a JS runtime + EJS components.
+In our tests, it works with:
 
 - `--no-js-runtimes --js-runtimes "node:/usr/bin/node"`
 - `--remote-components ejs:github`
 
-Quand YouTube bloque yt-dlp, solutions recommandées :
+When YouTube blocks yt-dlp, recommended solutions:
 
-### Option A (la plus safe)
-Télécharger **en local** (sur ta machine) puis fournir le MP4 au pipeline.
+### Option A (safest)
+Download **locally** (on your machine) then provide the MP4 to the pipeline.
 
-Exemple :
+Example:
 - `yt-dlp --cookies-from-browser chrome "<URL>"`
 
-### Option B (cookies dédiés)
-Si tu veux que le téléchargement se fasse sur la VM :
-- utiliser un compte dédié / jetable
-- fournir des cookies temporaires
-- supprimer les cookies après test
+### Option B (dedicated cookies)
+If you want the download to happen on the VM:
+- use a dedicated / disposable account
+- provide temporary cookies
+- delete cookies after testing
 
-⚠️ Ne pas partager des cookies “principaux” via une messagerie : ça équivaut à partager une session authentifiée.
+⚠️ Do not share "primary" cookies via messaging: this is equivalent to sharing an authenticated session.
 
-## Sorties attendues
+## Expected Output
 
-- MP4 final avec audio doublé FR (et éventuellement conservation de l’audio original en piste 2 si on le veut).
+- Final MP4 with French dubbed audio (and optionally keeping the original audio as track 2 if desired).
 
-## Prochaines améliorations (idées)
+## Future Improvements (ideas)
 
-- gestion propre des pistes audio multiples
-- sous-titres FR (SRT/VTT) en plus du dub
-- caching des étapes (download/transcript)
-- options : voix, vitesse, normalisation audio, etc.
+- proper management of multiple audio tracks
+- French subtitles (SRT/VTT) in addition to the dub
+- caching of pipeline steps (download/transcript)
+- options: voice, speed, audio normalization, etc.

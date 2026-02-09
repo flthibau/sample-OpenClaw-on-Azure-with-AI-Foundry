@@ -10,7 +10,7 @@ This guide provides detailed instructions for configuring and using OpenClaw on 
 - [Starting OpenClaw](#starting-openclaw)
 - [Connecting Messaging Channels](#connecting-messaging-channels)
 - [Using OpenClaw](#using-openclaw)
-- [Multi-Agent : Agent dédié par utilisateur](#multi-agent--agent-dédié-par-utilisateur)
+- [Multi-Agent: Dedicated Agent per User](#multi-agent-dedicated-agent-per-user)
 - [Advanced Configuration](#advanced-configuration)
 - [Monitoring and Logs](#monitoring-and-logs)
 - [Updating OpenClaw](#updating-openclaw)
@@ -459,19 +459,19 @@ Would you like me to generate the code for this automation?
 
 ---
 
-## Multi-Agent : Agent dédié par utilisateur
+## Multi-Agent: Dedicated Agent per User
 
-OpenClaw permet de créer **plusieurs agents** sur la même instance, chacun avec son propre workspace, ses skills et sa personnalité. Un système de **bindings** route automatiquement les messages Telegram vers l'agent approprié.
+OpenClaw allows you to create **multiple agents** on the same instance, each with its own workspace, skills, and personality. A **bindings** system automatically routes Telegram messages to the appropriate agent.
 
-### Pourquoi ?
+### Why?
 
-Certains utilisateurs (famille, collègues) n'ont pas besoin de toutes les capacités d'OpenClaw. On peut leur créer un agent **restreint** qui n'expose qu'un seul skill via Telegram, sans accès au shell, au browsing ou aux autres outils.
+Some users (family, colleagues) don't need all of OpenClaw's capabilities. You can create a **restricted** agent that only exposes a single skill via Telegram, with no access to the shell, browsing, or other tools.
 
-### Exemple concret : agent "Corinne"
+### Concrete Example: Restricted Telegram User
 
-Corinne utilise Telegram sur son téléphone. Elle envoie un lien YouTube → elle reçoit la vidéo doublée en français. C'est tout.
+A non-technical user uses Telegram on their phone. They send a YouTube link → they receive the video dubbed in French. That's it.
 
-#### 1. Déclarer l'agent dans `~/.openclaw/openclaw.json`
+#### 1. Declare the agent in `~/.openclaw/openclaw.json`
 
 ```json
 {
@@ -483,9 +483,9 @@ Corinne utilise Telegram sur son téléphone. Elle envoie un lien YouTube → el
     "list": [
       { "id": "main", "default": true },
       {
-        "id": "corinne",
-        "name": "Corinne",
-        "workspace": "/home/azureuser/.openclaw/workspace-corinne",
+        "id": "restricted-user",
+        "name": "Restricted User",
+        "workspace": "/home/azureuser/.openclaw/workspace-restricted",
         "identity": { "name": "Mnemo", "emoji": "🧠" },
         "tools": {}
       }
@@ -494,72 +494,72 @@ Corinne utilise Telegram sur son téléphone. Elle envoie un lien YouTube → el
 }
 ```
 
-**Points clés :**
-- `workspace` séparé : l'agent n'a accès qu'aux fichiers/skills de ce dossier
-- `tools: {}` : pas d'outils supplémentaires (les skills du workspace suffisent)
+**Key points:**
+- Separate `workspace`: the agent only has access to files/skills in that folder
+- `tools: {}`: no additional tools (the workspace skills are sufficient)
 
-#### 2. Binding Telegram → Agent
+#### 2. Telegram → Agent Binding
 
-Le binding route automatiquement les DM d'un utilisateur Telegram vers un agent :
+The binding automatically routes a Telegram user's DMs to a specific agent:
 
 ```json
 {
   "bindings": [
     {
-      "agentId": "corinne",
+      "agentId": "restricted-user",
       "match": {
         "channel": "telegram",
-        "peer": { "kind": "dm", "id": "8494122135" }
+        "peer": { "kind": "dm", "id": "TELEGRAM_USER_ID" }
       }
     }
   ]
 }
 ```
 
-Pour trouver l'ID Telegram d'un utilisateur : envoyez `/start` au bot, puis cherchez le `chat.id` dans les logs (`journalctl -u openclaw -f`).
+To find a Telegram user's ID: send `/start` to the bot, then look for `chat.id` in the logs (`journalctl -u openclaw -f`).
 
-#### 3. Workspace restreint
+#### 3. Restricted Workspace
 
-Créez le workspace avec un `SOUL.md` restrictif :
+Create the workspace with a restrictive `SOUL.md`:
 
 ```bash
-mkdir -p ~/.openclaw/workspace-corinne/skills
+mkdir -p ~/.openclaw/workspace-restricted/skills
 ```
 
-**`~/.openclaw/workspace-corinne/SOUL.md`** — définit le comportement :
+**`~/.openclaw/workspace-restricted/SOUL.md`** — defines the agent's behavior:
 ```markdown
-# SOUL.md - Mode Corinne
+# SOUL.md - Restricted Mode
 
-Tu es Mnemo, en mode strictement limité pour Corinne.
+You are Mnemo, in a strictly limited mode for this user.
 
 ## Mission
-- Tu fais uniquement une chose : doubler des vidéos YouTube en français.
-- Objectif : une expérience ultra simple sur téléphone.
+- You do only one thing: dub YouTube videos in French.
+- Goal: an ultra-simple experience on mobile.
 
-## Règles
-1. Si le message contient une URL YouTube : appelle le skill yt_fr_dub.
-2. Sinon : réponds "Envoie juste un lien YouTube."
-3. Ne renvoie jamais de commandes, de JSON ou de détails techniques.
+## Rules
+1. If the message contains a YouTube URL: call the yt_fr_dub skill.
+2. Otherwise: reply "Just send a YouTube link."
+3. Never return commands, JSON, or technical details.
 ```
 
-#### 4. Skills dans le workspace Corinne
+#### 4. Skills in the Restricted Workspace
 
-Copiez ou liez uniquement les skills autorisés :
+Copy or link only the authorized skills:
 
 ```bash
-cp -r ~/.openclaw/workspace/skills/yt_fr_dub ~/.openclaw/workspace-corinne/skills/
+cp -r ~/.openclaw/workspace/skills/yt_fr_dub ~/.openclaw/workspace-restricted/skills/
 ```
 
-L'agent Corinne n'aura accès qu'aux skills de son workspace.
+The restricted agent will only have access to skills in its own workspace.
 
-#### 5. Résultat
+#### 5. Result
 
-| Utilisateur | Canal | Agent | Capacités |
-|-------------|-------|-------|-----------|
-| Florent (admin) | Telegram / TUI | `main` | Tous les outils, shell, browse, skills |
-| Corinne | Telegram DM | `corinne` | Uniquement le skill `yt_fr_dub` |
+| User | Channel | Agent | Capabilities |
+|------|---------|-------|-------------|
+| Admin | Telegram / TUI | `main` | All tools, shell, browse, skills |
+| Restricted user | Telegram DM | `restricted-user` | Only the `yt_fr_dub` skill |
 
-Corinne envoie un lien YouTube sur Telegram → Mnemo télécharge, transcrit, traduit, synthétise la voix, remuxe → upload le MP4 via Managed Identity sur Azure Storage → renvoie le lien de la vidéo doublée.
+The user sends a YouTube link on Telegram → Mnemo downloads, transcribes, translates, synthesizes voice, remuxes → uploads the MP4 via Managed Identity to Azure Storage → sends back the dubbed video link.
 
 ---
 

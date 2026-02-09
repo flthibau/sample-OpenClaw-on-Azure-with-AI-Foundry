@@ -1,6 +1,6 @@
-# OpenClaw on Azure avec APIM - Guide de déploiement
+# OpenClaw on Azure with APIM - Deployment Guide
 
-Ce guide explique comment déployer OpenClaw sur Azure avec Azure API Management pour résoudre le problème d'authentification Entra ID.
+This guide explains how to deploy OpenClaw on Azure with Azure API Management to solve the Entra ID authentication issue.
 
 ## 🎯 Architecture
 
@@ -21,7 +21,7 @@ Ce guide explique comment déployer OpenClaw sur Azure avec Azure API Management
 │  │                         └──────────────────────────────────┘    │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                    │                                     │
-│                                    │ HTTPS (clé API APIM)                │
+│                                    │ HTTPS (APIM API key)                │
 │                                    ▼                                     │
 │                    ┌──────────────────────────────────┐                  │
 │                    │       Azure APIM                  │                  │
@@ -42,49 +42,49 @@ Ce guide explique comment déployer OpenClaw sur Azure avec Azure API Management
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Déploiement rapide
+## 🚀 Quick Start Deployment
 
-### Prérequis
+### Prerequisites
 
-- Abonnement Azure avec accès à GPT-5.2-codex
-- Azure CLI installé
+- Azure subscription with access to GPT-5.2-codex
+- Azure CLI installed
 - PowerShell 7+
 
-### Déployer
+### Deploy
 
 ```powershell
-# Cloner le repository
+# Clone the repository
 cd sample-OpenClaw-on-Azure-with-AI-Foundry
 
-# Déployer (15-20 minutes)
+# Deploy (15-20 minutes)
 ./scripts/deploy-apim.ps1 -ResourceGroup "rg-openclaw"
 ```
 
-### Paramètres optionnels
+### Optional Parameters
 
-| Paramètre | Défaut | Description |
-|-----------|--------|-------------|
-| `-ResourceGroup` | `rg-openclaw` | Nom du Resource Group |
-| `-Location` | `swedencentral` | Région Azure |
-| `-ModelName` | `gpt-5.2-codex` | Modèle à déployer |
-| `-ModelVersion` | `2026-01-01` | Version du modèle |
-| `-PublisherEmail` | `admin@contoso.com` | Email pour APIM |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-ResourceGroup` | `rg-openclaw` | Resource Group name |
+| `-Location` | `swedencentral` | Azure region |
+| `-ModelName` | `gpt-5.2-codex` | Model to deploy |
+| `-ModelVersion` | `2026-01-01` | Model version |
+| `-PublisherEmail` | `admin@contoso.com` | Email for APIM |
 
-## 📋 Après le déploiement
+## 📋 Post-Deployment
 
-### 1. Se connecter à la VM via Bastion
+### 1. Connect to the VM via Bastion
 
-1. Allez sur [portal.azure.com](https://portal.azure.com)
-2. Resource Groups → votre RG → votre VM
-3. Cliquez **Connect** → **Bastion**
-4. Entrez les credentials affichés par le script
+1. Go to [portal.azure.com](https://portal.azure.com)
+2. Resource Groups → your RG → your VM
+3. Click **Connect** → **Bastion**
+4. Enter the credentials displayed by the script
 
-### 2. Configurer OpenClaw
+### 2. Configure OpenClaw
 
-Le script de déploiement génère un fichier `openclaw-config-*.json`. Copiez son contenu dans la VM :
+The deployment script generates an `openclaw-config-*.json` file. Copy its contents into the VM:
 
 ```bash
-# Sur la VM, créer le fichier de configuration
+# On the VM, create the configuration file
 cat > ~/.openclaw/openclaw.json << 'EOF'
 {
   "agents": {
@@ -100,24 +100,24 @@ cat > ~/.openclaw/openclaw.json << 'EOF'
 EOF
 ```
 
-### 3. Lancer OpenClaw
+### 3. Start OpenClaw
 
 ```bash
-# Option A: Avec le wizard d'onboarding
+# Option A: With the onboarding wizard
 openclaw onboard --install-daemon
 
-# Option B: Démarrage manuel
+# Option B: Manual start
 ./start.sh
 
-# Vérifier le statut
+# Check the status
 ./status.sh
 ```
 
-### 4. Accéder au Dashboard
+### 4. Access the Dashboard
 
-Le dashboard OpenClaw est accessible sur `http://localhost:18789/` depuis la VM.
+The OpenClaw dashboard is accessible at `http://localhost:18789/` from the VM.
 
-Pour y accéder depuis votre machine locale, utilisez un tunnel via Bastion (nécessite Bastion Standard) :
+To access it from your local machine, use a tunnel via Bastion (requires Bastion Standard):
 
 ```bash
 az network bastion tunnel \
@@ -128,19 +128,19 @@ az network bastion tunnel \
   --port 8080
 ```
 
-Puis ouvrez `http://localhost:8080` dans votre navigateur.
+Then open `http://localhost:8080` in your browser.
 
-## 🤖 Multi-modèles
+## 🤖 Multi-Model Support
 
-OpenClaw est configuré avec plusieurs modèles en fallback :
+OpenClaw is configured with multiple fallback models:
 
-| Modèle | Alias | Utilisation |
-|--------|-------|-------------|
-| `gpt-5.2-codex` | Codex 5.2 | Principal - codage avancé |
-| `gpt-5.2` | GPT-5.2 | Fallback - général |
-| `gpt-4o` | GPT-4o | Fallback - rapide |
+| Model | Alias | Usage |
+|-------|-------|-------|
+| `gpt-5.2-codex` | Codex 5.2 | Primary - advanced coding |
+| `gpt-5.2` | GPT-5.2 | Fallback - general purpose |
+| `gpt-4o` | GPT-4o | Fallback - fast |
 
-Pour changer de modèle en cours de conversation :
+To switch models during a conversation:
 
 ```
 /model
@@ -148,18 +148,18 @@ Pour changer de modèle en cours de conversation :
 /model azure-openai/gpt-5.2
 ```
 
-## 🔍 Recherche Web
+## 🔍 Web Search
 
-OpenClaw supporte par défaut **Brave Search** et **Perplexity**. Pour utiliser Bing Search, vous devrez créer un skill personnalisé (voir documentation des skills).
+OpenClaw supports **Brave Search** and **Perplexity** by default. To use Bing Search, you will need to create a custom skill (see the skills documentation).
 
-### Configuration Brave Search (recommandé)
+### Brave Search Configuration (recommended)
 
 ```bash
 openclaw configure --section web
-# Entrez votre clé API Brave Search
+# Enter your Brave Search API key
 ```
 
-### Alternative : Perplexity via OpenRouter
+### Alternative: Perplexity via OpenRouter
 
 ```json
 {
@@ -176,66 +176,66 @@ openclaw configure --section web
 }
 ```
 
-## 🛠️ Skills personnalisés
+## 🛠️ Custom Skills
 
-Pour ajouter des skills à votre agent :
+To add skills to your agent:
 
 ```bash
-# Créer un dossier de skill
-mkdir -p ~/.openclaw/workspace/skills/mon-skill
+# Create a skill folder
+mkdir -p ~/.openclaw/workspace/skills/my-skill
 
-# Créer le fichier SKILL.md
-cat > ~/.openclaw/workspace/skills/mon-skill/SKILL.md << 'EOF'
-# Mon Skill
+# Create the SKILL.md file
+cat > ~/.openclaw/workspace/skills/my-skill/SKILL.md << 'EOF'
+# My Skill
 
-Description de ce que fait le skill...
+Description of what the skill does...
 
 ## Instructions
 
-Instructions pour l'agent...
+Instructions for the agent...
 EOF
 ```
 
-Redémarrez OpenClaw pour charger le skill.
+Restart OpenClaw to load the skill.
 
-## 💰 Coûts estimés
+## 💰 Estimated Costs
 
-| Ressource | SKU | Coût mensuel (estimé) |
-|-----------|-----|----------------------|
-| Azure VM | Standard_D2s_v5 | ~35€ |
-| Azure Bastion | Basic | ~27€ |
-| OS Disk | Premium SSD 128GB | ~10€ |
-| Azure APIM | Consumption | ~0€ (pay-per-use) |
+| Resource | SKU | Monthly Cost (estimated) |
+|----------|-----|--------------------------|
+| Azure VM | Standard_D2s_v5 | ~€35 |
+| Azure Bastion | Basic | ~€27 |
+| OS Disk | Premium SSD 128GB | ~€10 |
+| Azure APIM | Consumption | ~€0 (pay-per-use) |
 | Azure AI Foundry | Pay-as-you-go | Variable |
-| **Total infra** | | **~72€/mois** |
+| **Total infra** | | **~€72/month** |
 
-### Économiser
+### Save Costs
 
 ```powershell
-# Arrêter la VM quand non utilisée
+# Stop the VM when not in use
 az vm deallocate -g rg-openclaw -n vm-openclaw
 
-# Redémarrer
+# Restart
 az vm start -g rg-openclaw -n vm-openclaw
 ```
 
-## 🔒 Sécurité
+## 🔒 Security
 
-- ✅ Pas d'IP publique sur la VM
-- ✅ Accès uniquement via Azure Bastion
-- ✅ AI Foundry avec authentification Entra ID uniquement
-- ✅ APIM avec Managed Identity
-- ✅ Clés API jamais exposées
+- ✅ No public IP on the VM
+- ✅ Access only via Azure Bastion
+- ✅ AI Foundry with Entra ID authentication only
+- ✅ APIM with Managed Identity
+- ✅ API keys never exposed
 
-## 🗑️ Nettoyage
+## 🗑️ Cleanup
 
 ```powershell
 az group delete -n rg-openclaw --yes --no-wait
 ```
 
-## 📚 Ressources
+## 📚 Resources
 
-- [Documentation OpenClaw](https://docs.openclaw.ai/)
+- [OpenClaw Documentation](https://docs.openclaw.ai/)
 - [Getting Started](https://docs.openclaw.ai/start/getting-started)
 - [Skills](https://docs.openclaw.ai/tools/skills)
 - [Models](https://docs.openclaw.ai/concepts/models)

@@ -1,8 +1,8 @@
-# OpenClaw Azure APIM - Modèles Disponibles
+# OpenClaw Azure APIM - Available Models
 
-## Configuration APIM
+## APIM Configuration
 
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **APIM Endpoint** | `https://apim-openclaw-0974.azure-api.net` |
 | **Subscription Key** | `f912e4b174d645aabe927e80f9992ff6` |
@@ -11,14 +11,14 @@
 
 ---
 
-## Modèles Chat/Completions
+## Chat/Completions Models
 
 ### GPT-5.2
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-gpt5` |
 | **Model ID** | `gpt-5.2` |
-| **Nom complet** | `azure-apim-gpt5/gpt-5.2` |
+| **Full Name** | `azure-apim-gpt5/gpt-5.2` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-5.2` |
 | **Endpoint** | `/chat/completions` |
 | **Context Window** | 256,000 tokens |
@@ -36,11 +36,11 @@ curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-5.2/cha
 ---
 
 ### GPT-5.2-Codex
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-gpt5-codex` |
 | **Model ID** | `gpt-5.2-codex` |
-| **Nom complet** | `azure-apim-gpt5-codex/gpt-5.2-codex` |
+| **Full Name** | `azure-apim-gpt5-codex/gpt-5.2-codex` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-5.2-codex` |
 | **Endpoint** | `/chat/completions` |
 | **Context Window** | 256,000 tokens |
@@ -58,18 +58,18 @@ curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-5.2-cod
 
 ---
 
-## Modèles Embeddings
+## Embeddings Models
 
 ### Text-Embedding-3-Small
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-embeddings` |
 | **Model ID** | `text-embedding-3-small` |
-| **Nom complet** | `azure-apim-embeddings/text-embedding-3-small` |
+| **Full Name** | `azure-apim-embeddings/text-embedding-3-small` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/text-embedding-3-small` |
 | **Endpoint** | `/embeddings` |
 | **Dimensions** | 1536 |
-| **Use Case** | Mémoire OpenClaw, recherche sémantique |
+| **Use Case** | OpenClaw memory, semantic search |
 
 ```bash
 # Test curl
@@ -81,21 +81,21 @@ curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/text-embedd
 
 ---
 
-## Modèles Audio
+## Audio Models
 
 ### GPT-4o-Transcribe
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-transcribe` |
 | **Model ID** | `gpt-4o-transcribe` |
-| **Nom complet** | `azure-apim-transcribe/gpt-4o-transcribe` |
+| **Full Name** | `azure-apim-transcribe/gpt-4o-transcribe` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-4o-transcribe` |
 | **Endpoint** | `/audio/transcriptions` |
 | **Input** | audio (mp3, wav, m4a, etc.) |
-| **Use Case** | Transcription audio/vidéo, traduction vidéo |
+| **Use Case** | Audio/video transcription, video translation |
 
 ```bash
-# Test curl (avec fichier audio)
+# Test curl (with audio file)
 curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2024-10-21" \
   -H "api-key: f912e4b174d645aabe927e80f9992ff6" \
   -F "file=@audio.mp3" \
@@ -105,11 +105,11 @@ curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-4o-tran
 ---
 
 ### GPT-4o-Audio-Preview
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-audio` |
 | **Model ID** | `gpt-4o-audio-preview` |
-| **Nom complet** | `azure-apim-audio/gpt-4o-audio-preview` |
+| **Full Name** | `azure-apim-audio/gpt-4o-audio-preview` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-4o-audio-preview` |
 | **Input** | audio, text |
 | **Output** | audio, text |
@@ -117,25 +117,25 @@ curl -s "https://apim-openclaw-0974.azure-api.net/openai/deployments/gpt-4o-tran
 
 ---
 
-## Modèles Vidéo
+## Video Models
 
 ### Sora-2
-| Paramètre | Valeur |
+| Parameter | Value |
 |-----------|--------|
 | **Provider OpenClaw** | `azure-apim-sora` |
 | **Model ID** | `sora-2` |
-| **Nom complet** | `azure-apim-sora/sora-2` |
+| **Full Name** | `azure-apim-sora/sora-2` |
 | **URL APIM** | `https://apim-openclaw-0974.azure-api.net/openai/deployments/sora-2` |
 | **Endpoint** | `/videos/generations` |
 | **Input** | text, image |
 | **Output** | video |
-| **Use Case** | Génération vidéo à partir de prompts |
+| **Use Case** | Video generation from prompts |
 
 ---
 
-## Configuration OpenClaw Complète
+## Complete OpenClaw Configuration
 
-Fichier `~/.openclaw/settings.json` :
+File `~/.openclaw/settings.json`:
 
 ```json
 {
@@ -204,17 +204,17 @@ Fichier `~/.openclaw/settings.json` :
 
 ---
 
-## Résumé Rapide
+## Quick Reference
 
-| Modèle | Provider | Nom Complet | Use Case |
+| Model | Provider | Full Name | Use Case |
 |--------|----------|-------------|----------|
-| gpt-5.2 | azure-apim-gpt5 | `azure-apim-gpt5/gpt-5.2` | Chat principal |
+| gpt-5.2 | azure-apim-gpt5 | `azure-apim-gpt5/gpt-5.2` | Primary chat |
 | gpt-5.2-codex | azure-apim-gpt5-codex | `azure-apim-gpt5-codex/gpt-5.2-codex` | Code |
-| text-embedding-3-small | azure-apim-embeddings | `azure-apim-embeddings/text-embedding-3-small` | Mémoire |
+| text-embedding-3-small | azure-apim-embeddings | `azure-apim-embeddings/text-embedding-3-small` | Memory |
 | gpt-4o-transcribe | azure-apim-transcribe | `azure-apim-transcribe/gpt-4o-transcribe` | Transcription |
 | gpt-4o-audio-preview | azure-apim-audio | `azure-apim-audio/gpt-4o-audio-preview` | Audio |
-| sora-2 | azure-apim-sora | `azure-apim-sora/sora-2` | Vidéo |
+| sora-2 | azure-apim-sora | `azure-apim-sora/sora-2` | Video |
 
 ---
 
-*Généré le 2026-02-04*
+*Generated on 2026-02-04*

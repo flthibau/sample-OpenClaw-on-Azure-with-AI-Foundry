@@ -2,9 +2,9 @@
 
 ## Overview
 
-**Skill OpenClaw** pour convertir automatiquement une vidéo YouTube en version doublée française.
+**OpenClaw Skill** to automatically convert a YouTube video to a French dubbed version.
 
-| Élément | Valeur |
+| Component | Value |
 |---------|--------|
 | **Nom** | yt_fr_dub |
 | **Version** | 0.1.0 |
@@ -146,7 +146,7 @@
 
 ### APIM Gateway
 
-| Composant | Endpoint |
+| Component | Endpoint |
 |-----------|----------|
 | **APIM** | `https://apim-openclaw-0974.azure-api.net` |
 | **API Key** | `f912e4b174d645aabe927e80f9992ff6` |
@@ -174,7 +174,7 @@
 | Account | `stopenclawmedia` |
 | Container | `media` |
 | Region | `swedencentral` |
-| Auth | VM MSI avec rôle `Storage Blob Data Contributor` |
+| Auth | VM MSI with role `Storage Blob Data Contributor` |
 
 ---
 

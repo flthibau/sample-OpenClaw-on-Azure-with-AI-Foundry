@@ -50,9 +50,9 @@ Running AI agents on your local machine can be risky - they can access your file
 │  ┌────────────────────────────────────────────────────────────────────────┐  │
 │  │                 Azure API Management (APIM)                             │  │
 │  │                                                                         │  │
-│  │   1. Reçoit: Authorization: Bearer <subscription-key>                   │  │
-│  │   2. Obtient: MSI Token pour cognitiveservices.azure.com                │  │
-│  │   3. Forward: Authorization: Bearer <msi-token>                         │  │
+│  │   1. Receives: Authorization: Bearer <subscription-key>                  │  │
+│  │   2. Gets: MSI Token for cognitiveservices.azure.com                    │  │
+│  │   3. Forwards: Authorization: Bearer <msi-token>                        │  │
 │  │                                                                         │  │
 │  │   🔐 Managed Identity: "Cognitive Services OpenAI User"                 │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
@@ -64,17 +64,17 @@ Running AI agents on your local machine can be risky - they can access your file
 │  │                                                                         │  │
 │  │   Deployments:                                                          │  │
 │  │   - gpt-5.2 (chat completions)                                          │  │
-│  │   - gpt-5.2-codex (code completion - pas de chat)                       │  │
+│  │   - gpt-5.2-codex (code completion - no chat)                           │  │
 │  │                                                                         │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔧 Configuration OpenClaw (CRITIQUE)
+## 🔧 OpenClaw Configuration (CRITICAL)
 
-La configuration d'OpenClaw pour fonctionner avec Azure AI Foundry via APIM est spécifique. Voici la configuration exacte qui fonctionne :
+The OpenClaw configuration to work with Azure AI Foundry via APIM requires specific settings. Here is the exact working configuration:
 
-### Fichier `~/.openclaw/openclaw.json`
+### File `~/.openclaw/openclaw.json`
 
 ```json
 {
@@ -116,35 +116,35 @@ La configuration d'OpenClaw pour fonctionner avec Azure AI Foundry via APIM est 
 }
 ```
 
-### Points clés de la configuration :
+### Key Configuration Notes:
 
-| Paramètre | Valeur | Explication |
-|-----------|--------|-------------|
-| `api` | `"openai-completions"` | **OBLIGATOIRE** - Type d'API OpenAI |
-| `baseUrl` | `https://<apim>/openai/deployments/<model>` | Inclut le chemin du deployment |
-| `apiKey` | Subscription key APIM | Pas la clé AI Foundry (qui n'existe pas) |
+| Parameter | Value | Explanation |
+|-----------|-------|-------------|
+| `api` | `"openai-completions"` | **REQUIRED** - OpenAI API type |
+| `baseUrl` | `https://<apim>/openai/deployments/<model>` | Includes the deployment path |
+| `apiKey` | APIM subscription key | Not an AI Foundry key (which doesn't exist) |
 
-### ⚠️ Erreurs courantes à éviter :
+### ⚠️ Common Mistakes to Avoid:
 
-1. **`api: undefined`** → Le champ `api` est obligatoire, utilisez `"openai-completions"`
-2. **`api: "azure-openai"`** → Valeur invalide, utilisez `"openai-completions"`
-3. **`api: "openai"`** → Valeur invalide pour les providers custom
-4. **Context window trop petit** → Minimum 16000 tokens requis par OpenClaw
+1. **`api: undefined`** → The `api` field is required, use `"openai-completions"`
+2. **`api: "azure-openai"`** → Invalid value, use `"openai-completions"`
+3. **`api: "openai"`** → Invalid value for custom providers
+4. **Context window too small** → Minimum 16000 tokens required by OpenClaw
 
-## 🔐 Configuration APIM (Policy)
+## 🔐 APIM Configuration (Policy)
 
-La policy APIM doit :
-1. Accepter `Authorization: Bearer <subscription-key>` (car OpenClaw utilise ce format)
-2. Obtenir un token MSI pour Azure Cognitive Services
-3. Remplacer le header Authorization par le token MSI
+The APIM policy must:
+1. Accept `Authorization: Bearer <subscription-key>` (since OpenClaw uses this format)
+2. Obtain an MSI token for Azure Cognitive Services
+3. Replace the Authorization header with the MSI token
 
-### Policy XML pour l'opération `chat-completions` :
+### XML Policy for the `chat-completions` operation:
 
 ```xml
 <policies>
     <inbound>
         <base />
-        <!-- Extraire le token Bearer et le mettre dans api-key si pas déjà présent -->
+        <!-- Extract Bearer token and set it as api-key if not already present -->
         <choose>
             <when condition="@(!context.Request.Headers.ContainsKey(&quot;api-key&quot;) 
                              &amp;&amp; context.Request.Headers.ContainsKey(&quot;Authorization&quot;))">
@@ -159,16 +159,16 @@ La policy APIM doit :
                 </set-header>
             </when>
         </choose>
-        <!-- Obtenir le token MSI pour AI Foundry -->
+        <!-- Get MSI token for AI Foundry -->
         <authentication-managed-identity 
             resource="https://cognitiveservices.azure.com" 
             output-token-variable-name="msi-access-token" 
             ignore-error="false" />
-        <!-- Remplacer Authorization par le token MSI -->
+        <!-- Replace Authorization with MSI token -->
         <set-header name="Authorization" exists-action="override">
             <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
         </set-header>
-        <!-- Rediriger vers AI Foundry -->
+        <!-- Redirect to AI Foundry -->
         <set-backend-service base-url="https://YOUR_AI_FOUNDRY.openai.azure.com/openai" />
     </inbound>
     <backend>
@@ -183,9 +183,9 @@ La policy APIM doit :
 </policies>
 ```
 
-### Configuration API APIM :
+### APIM API Configuration:
 
-L'API doit être configurée avec `subscriptionRequired: false` pour que la policy puisse gérer l'authentification :
+The API must be configured with `subscriptionRequired: false` so the policy can handle authentication:
 
 ```json
 {
@@ -199,36 +199,36 @@ L'API doit être configurée avec `subscriptionRequired: false` pour que la poli
 }
 ```
 
-## 🚀 Démarrage rapide (avec infra existante)
+## 🚀 Quick Start (with existing infrastructure)
 
-Si vous avez déjà un AI Foundry déployé, voici les étapes pour configurer OpenClaw :
+If you already have AI Foundry deployed, here are the steps to configure OpenClaw:
 
-### 1. Déployer APIM + VM + Bastion
+### 1. Deploy APIM + VM + Bastion
 
 ```bash
 # Via PowerShell
 ./scripts/deploy-simple.ps1 -ResourceGroupName "rg-openclaw" -AiFoundryEndpoint "https://your-foundry.openai.azure.com"
 ```
 
-### 2. Se connecter à la VM via Bastion
+### 2. Connect to the VM via Bastion
 
-Allez dans le portail Azure → VM → Connect → Bastion
+Go to Azure Portal → VM → Connect → Bastion
 
-### 3. Installer OpenClaw sur la VM
+### 3. Install OpenClaw on the VM
 
 ```bash
-# Installer Node.js 22
+# Install Node.js 22
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Installer OpenClaw
+# Install OpenClaw
 sudo npm install -g openclaw
 
-# Configuration initiale
+# Initial setup
 openclaw setup
 ```
 
-### 4. Configurer OpenClaw
+### 4. Configure OpenClaw
 
 ```bash
 cat > ~/.openclaw/openclaw.json << 'EOF'
@@ -272,13 +272,13 @@ cat > ~/.openclaw/openclaw.json << 'EOF'
 EOF
 ```
 
-### 5. Démarrer OpenClaw
+### 5. Start OpenClaw
 
 ```bash
-# Terminal 1: Démarrer le gateway
+# Terminal 1: Start the gateway
 OPENCLAW_GATEWAY_TOKEN="your-secure-token" openclaw gateway --verbose &
 
-# Terminal 2: Démarrer le TUI
+# Terminal 2: Start the TUI
 OPENCLAW_GATEWAY_TOKEN="your-secure-token" openclaw
 ```
 
@@ -362,23 +362,23 @@ journalctl -u openclaw -f
 - **Encryption**: Disk encryption enabled by default
 - **RBAC**: Fine-grained access control
 
-## � Multi-Agent : Agent dédié par utilisateur Telegram
+## 👥 Multi-Agent: Dedicated Agent per Telegram User
 
-OpenClaw supporte le **multi-agent** : chaque utilisateur Telegram peut être routé vers un agent spécifique avec son propre workspace, ses propres skills et ses propres restrictions.
+OpenClaw supports **multi-agent**: each Telegram user can be routed to a specific agent with its own workspace, skills, and restrictions.
 
-### Cas d'usage : Corinne
+### Use Case: Corinne
 
-Corinne est une utilisatrice non-technique. Elle ne doit avoir accès qu'à **une seule fonctionnalité** : envoyer un lien YouTube et recevoir la vidéo doublée en français. Pas de shell, pas de code, pas de browse — juste Telegram.
+Corinne is a non-technical user. She should only have access to **a single feature**: send a YouTube link and receive the video dubbed in French. No shell, no code, no browsing — just Telegram.
 
-Pour cela, un agent dédié `corinne` est configuré :
+To achieve this, a dedicated `corinne` agent is configured:
 
-1. **Agent séparé** avec un workspace isolé (`~/.openclaw/workspace-corinne/`)
-2. **Binding Telegram** : les DM de Corinne sont automatiquement routés vers l'agent `corinne`
-3. **SOUL.md restrictif** : l'agent ne fait qu'une seule chose (doubler des vidéos YouTube)
-4. **Skills restreints** : seuls les skills du workspace Corinne sont accessibles
+1. **Separate agent** with an isolated workspace (`~/.openclaw/workspace-corinne/`)
+2. **Telegram binding**: Corinne's DMs are automatically routed to the `corinne` agent
+3. **Restrictive SOUL.md**: the agent does only one thing (dub YouTube videos)
+4. **Restricted skills**: only skills from Corinne's workspace are accessible
 
 ```json
-// Dans ~/.openclaw/openclaw.json
+// In ~/.openclaw/openclaw.json
 {
   "agents": {
     "list": [
@@ -402,7 +402,7 @@ Pour cela, un agent dédié `corinne` est configuré :
 }
 ```
 
-Pour plus de détails, voir [docs/USAGE.md](docs/USAGE.md#multi-agent--agent-dédié-par-utilisateur).
+For more details, see [docs/USAGE.md](docs/USAGE.md#multi-agent-dedicated-agent-per-user).
 
 ## 📁 Project Structure
 
@@ -410,21 +410,21 @@ Pour plus de détails, voir [docs/USAGE.md](docs/USAGE.md#multi-agent--agent-dé
 sample-OpenClaw-on-Azure-with-AI-Foundry/
 ├── README.md                       # This file
 ├── configs/
-│   └── openclaw-azure-apim.json   # ⭐ Template de config OpenClaw
+│   └── openclaw-azure-apim.json   # ⭐ OpenClaw config template
 ├── skills/
-│   ├── yt_fr_dub/                 # 🎬 Skill de doublage YouTube en français
-│   │   ├── run.js                 # Script principal (Azure SDK + Managed Identity)
-│   │   ├── SKILL.md               # Définition du skill pour OpenClaw
-│   │   └── package.json           # Dépendances (@azure/identity, @azure/storage-blob)
-│   └── yt-dlp-downloader-skill/   # 📥 Skill de téléchargement vidéo
-│       └── SKILL.md               # Définition du skill
+│   ├── yt_fr_dub/                 # 🎬 YouTube French dubbing skill
+│   │   ├── run.js                 # Main script (Azure SDK + Managed Identity)
+│   │   ├── SKILL.md               # Skill definition for OpenClaw
+│   │   └── package.json           # Dependencies (@azure/identity, @azure/storage-blob)
+│   └── yt-dlp-downloader-skill/   # 📥 Video downloader skill
+│       └── SKILL.md               # Skill definition
 ├── infra/
 │   ├── main-complete.bicep        # Complete infrastructure (recommended)
 │   ├── main.bicep                 # Basic infrastructure template
 │   ├── main.bicepparam            # Parameters file
 │   └── cloud-init.yaml            # VM initialization script
 ├── scripts/
-│   ├── deploy-with-apim.ps1       # ⭐ Déploiement complet avec APIM (recommandé)
+│   ├── deploy-with-apim.ps1       # ⭐ Full deployment with APIM (recommended)
 │   ├── deploy-complete.ps1        # One-click deployment (PowerShell)
 │   ├── deploy-complete.sh         # One-click deployment (Bash)
 │   ├── deploy.ps1                 # Basic deployment script
@@ -441,17 +441,17 @@ sample-OpenClaw-on-Azure-with-AI-Foundry/
 
 ## 🔧 Troubleshooting OpenClaw + Azure
 
-### Erreur: "No API provider registered for api: undefined"
+### Error: "No API provider registered for api: undefined"
 
-**Cause**: Le champ `api` manque ou a une valeur invalide dans la config OpenClaw.
+**Cause**: The `api` field is missing or has an invalid value in the OpenClaw config.
 
-**Solution**: Ajoutez `"api": "openai-completions"` dans votre provider :
+**Solution**: Add `"api": "openai-completions"` to your provider:
 ```json
 {
   "models": {
     "providers": {
       "azure-apim": {
-        "api": "openai-completions",  // ← OBLIGATOIRE
+        "api": "openai-completions",  // ← REQUIRED
         ...
       }
     }
@@ -459,43 +459,43 @@ sample-OpenClaw-on-Azure-with-AI-Foundry/
 }
 ```
 
-### Erreur: "Model context window too small"
+### Error: "Model context window too small"
 
-**Cause**: OpenClaw requiert un minimum de 16000 tokens de context window.
+**Cause**: OpenClaw requires a minimum of 16000 tokens for the context window.
 
-**Solution**: Mettez `"contextWindow": 32000` ou plus dans votre modèle.
+**Solution**: Set `"contextWindow": 32000` or higher in your model.
 
-### Erreur: "401 Access denied due to missing subscription key"
+### Error: "401 Access denied due to missing subscription key"
 
-**Cause**: APIM ne reconnaît pas le header d'authentification.
+**Cause**: APIM does not recognize the authentication header.
 
 **Solution**: 
-1. Configurez `subscriptionRequired: false` sur l'API APIM
-2. Assurez-vous que la policy extrait le token du header `Authorization: Bearer`
+1. Set `subscriptionRequired: false` on the APIM API
+2. Make sure the policy extracts the token from the `Authorization: Bearer` header
 
-### L'agent démarre mais "(no output)"
+### Agent starts but "(no output)"
 
-**Cause**: L'agent ne fait pas d'appel HTTP vers l'API.
+**Cause**: The agent is not making HTTP calls to the API.
 
-**Vérification**:
+**Verification**:
 ```bash
-# Voir les logs détaillés
+# View detailed logs
 OPENCLAW_LOG_LEVEL=trace openclaw gateway --verbose 2>&1 | tee /tmp/trace.log
 
-# Chercher les erreurs
+# Search for errors
 grep -iE "error|http|fetch" /tmp/trace.log
 ```
 
-### Tester l'API directement
+### Test the API Directly
 
 ```bash
-# Test avec api-key header
+# Test with api-key header
 curl -X POST "https://YOUR_APIM.azure-api.net/openai/deployments/gpt-5.2/chat/completions?api-version=2024-10-21" \
   -H "Content-Type: application/json" \
   -H "api-key: YOUR_SUBSCRIPTION_KEY" \
   -d '{"messages":[{"role":"user","content":"Hello"}]}'
 
-# Test avec Authorization: Bearer (comme OpenClaw)
+# Test with Authorization: Bearer (as OpenClaw uses)
 curl -X POST "https://YOUR_APIM.azure-api.net/openai/deployments/gpt-5.2/chat/completions?api-version=2024-10-21" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_SUBSCRIPTION_KEY" \

@@ -1,15 +1,15 @@
 #!/usr/bin/env pwsh
 #
-# OpenClaw on Azure - Utilise un AI Foundry EXISTANT
-# Déploie VM + APIM + Bastion et connecte à votre AI Foundry
+# OpenClaw on Azure - Uses an EXISTING AI Foundry
+# Deploys VM + APIM + Bastion and connects to your AI Foundry
 #
 
 param(
     [Parameter(Mandatory=$true)]
-    [string]$AiFoundryEndpoint,  # Ex: https://votre-nom.openai.azure.com/
+    [string]$AiFoundryEndpoint,  # E.g.: https://your-name.openai.azure.com/
     
     [Parameter(Mandatory=$true)]
-    [string]$AiFoundryResourceId,  # Ex: /subscriptions/.../resourceGroups/.../providers/Microsoft.CognitiveServices/accounts/...
+    [string]$AiFoundryResourceId,  # E.g.: /subscriptions/.../resourceGroups/.../providers/Microsoft.CognitiveServices/accounts/...
     
     [string]$ResourceGroup = "rg-openclaw",
     [string]$Location = "swedencentral",
@@ -22,12 +22,12 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  🦞 OpenClaw - Utilise AI Foundry existant 🦞                 ║" -ForegroundColor Cyan
+Write-Host "║  🦞 OpenClaw - Uses existing AI Foundry 🦞                   ║" -ForegroundColor Cyan
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
 # =============================================================================
-# Générer les mots de passe
+# Generate passwords
 # =============================================================================
 
 $VmPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_}) + "!Aa1"
@@ -40,12 +40,12 @@ Write-Host "   Resource Group: $ResourceGroup" -ForegroundColor White
 Write-Host ""
 
 # =============================================================================
-# Étape 1: Créer le Resource Group
+# Step 1: Create the Resource Group
 # =============================================================================
 
-Write-Host "📦 Étape 1/5: Création du Resource Group..." -ForegroundColor Yellow
+Write-Host "📦 Step 1/5: Creating the Resource Group..." -ForegroundColor Yellow
 az group create -n $ResourceGroup -l $Location -o none 2>$null
-Write-Host "   ✅ Resource Group '$ResourceGroup' créé" -ForegroundColor Green
+Write-Host "   ✅ Resource Group '$ResourceGroup' created" -ForegroundColor Green
 
 # =============================================================================
 # Variables
@@ -58,14 +58,14 @@ $vnetName = "vnet-openclaw"
 $bastionName = "bastion-openclaw"
 
 # =============================================================================
-# Étape 2: Créer le VNet et Bastion
+# Step 2: Create the VNet and Bastion
 # =============================================================================
 
 Write-Host ""
-Write-Host "🌐 Étape 2/5: Création du réseau (VNet + Bastion)..." -ForegroundColor Yellow
-Write-Host "   ⏳ Bastion prend ~5 minutes..." -ForegroundColor Gray
+Write-Host "🌐 Step 2/5: Creating the network (VNet + Bastion)..." -ForegroundColor Yellow
+Write-Host "   ⏳ Bastion takes ~5 minutes..." -ForegroundColor Gray
 
-# Créer le VNet
+# Create the VNet
 az network vnet create `
     -g $ResourceGroup `
     -n $vnetName `
@@ -74,7 +74,7 @@ az network vnet create `
     --subnet-prefix "10.0.0.0/24" `
     -o none
 
-# Créer le subnet Bastion
+# Create the Bastion subnet
 az network vnet subnet create `
     -g $ResourceGroup `
     --vnet-name $vnetName `
@@ -82,7 +82,7 @@ az network vnet subnet create `
     --address-prefix "10.0.1.0/26" `
     -o none
 
-# Créer l'IP publique pour Bastion
+# Create the public IP for Bastion
 az network public-ip create `
     -g $ResourceGroup `
     -n "pip-$bastionName" `
@@ -90,7 +90,7 @@ az network public-ip create `
     --allocation-method Static `
     -o none
 
-# Créer Bastion
+# Create Bastion
 az network bastion create `
     -g $ResourceGroup `
     -n $bastionName `
@@ -99,15 +99,15 @@ az network bastion create `
     --sku Basic `
     -o none
 
-Write-Host "   ✅ Réseau créé" -ForegroundColor Green
+Write-Host "   ✅ Network created" -ForegroundColor Green
 
 # =============================================================================
-# Étape 3: Créer APIM
+# Step 3: Create APIM
 # =============================================================================
 
 Write-Host ""
-Write-Host "🔌 Étape 3/5: Création d'Azure API Management..." -ForegroundColor Yellow
-Write-Host "   ⏳ APIM Consumption prend ~2 minutes..." -ForegroundColor Gray
+Write-Host "🔌 Step 3/5: Creating Azure API Management..." -ForegroundColor Yellow
+Write-Host "   ⏳ APIM Consumption takes ~2 minutes..." -ForegroundColor Gray
 
 az apim create `
     -g $ResourceGroup `
@@ -117,20 +117,20 @@ az apim create `
     --sku-name Consumption `
     -o none
 
-# Activer Managed Identity sur APIM
+# Enable Managed Identity on APIM
 az apim update -g $ResourceGroup -n $apimName --enable-managed-identity true -o none
 
 $apimPrincipalId = az apim show -g $ResourceGroup -n $apimName --query "identity.principalId" -o tsv
 $apimGatewayUrl = az apim show -g $ResourceGroup -n $apimName --query "gatewayUrl" -o tsv
 
-Write-Host "   ✅ APIM créé: $apimGatewayUrl" -ForegroundColor Green
+Write-Host "   ✅ APIM created: $apimGatewayUrl" -ForegroundColor Green
 
 # =============================================================================
-# Étape 3b: Donner accès APIM à AI Foundry
+# Step 3b: Grant APIM access to AI Foundry
 # =============================================================================
 
 Write-Host ""
-Write-Host "🔑 Attribution des permissions APIM → AI Foundry..." -ForegroundColor Yellow
+Write-Host "🔑 Assigning permissions APIM → AI Foundry..." -ForegroundColor Yellow
 
 az role assignment create `
     --assignee $apimPrincipalId `
@@ -138,16 +138,16 @@ az role assignment create `
     --scope $AiFoundryResourceId `
     -o none 2>$null
 
-Write-Host "   ✅ Permissions attribuées" -ForegroundColor Green
+Write-Host "   ✅ Permissions assigned" -ForegroundColor Green
 
 # =============================================================================
-# Étape 3c: Configurer l'API dans APIM
+# Step 3c: Configure the API in APIM
 # =============================================================================
 
 Write-Host ""
-Write-Host "⚙️ Configuration de l'API OpenAI dans APIM..." -ForegroundColor Yellow
+Write-Host "⚙️ Configuring the OpenAI API in APIM..." -ForegroundColor Yellow
 
-# Créer l'API
+# Create the API
 az apim api create `
     -g $ResourceGroup `
     --service-name $apimName `
@@ -159,7 +159,7 @@ az apim api create `
     --subscription-required true `
     -o none
 
-# Créer une opération catch-all
+# Create a catch-all operation
 az apim api operation create `
     -g $ResourceGroup `
     --service-name $apimName `
@@ -170,7 +170,7 @@ az apim api operation create `
     --url-template "/*" `
     -o none
 
-# Appliquer la policy pour transformer la clé en token MSI
+# Apply the policy to transform the key to MSI token
 $policy = @'
 <policies>
   <inbound>
@@ -204,7 +204,7 @@ az apim api policy create `
     --policy-content "@$policyFile" `
     -o none
 
-# Créer une subscription
+# Create a subscription
 az apim subscription create `
     -g $ResourceGroup `
     --service-name $apimName `
@@ -214,23 +214,23 @@ az apim subscription create `
     --state active `
     -o none
 
-# Récupérer la clé
+# Retrieve the key
 $apimKey = az apim subscription keys list `
     -g $ResourceGroup `
     --service-name $apimName `
     --subscription-id "openclaw-sub" `
     --query "primaryKey" -o tsv
 
-Write-Host "   ✅ API configurée" -ForegroundColor Green
+Write-Host "   ✅ API configured" -ForegroundColor Green
 
 # =============================================================================
-# Étape 4: Créer la VM
+# Step 4: Create the VM
 # =============================================================================
 
 Write-Host ""
-Write-Host "🖥️ Étape 4/5: Création de la VM avec OpenClaw..." -ForegroundColor Yellow
+Write-Host "🖥️ Step 4/5: Creating the VM with OpenClaw..." -ForegroundColor Yellow
 
-# Cloud-init pour installer OpenClaw
+# Cloud-init to install OpenClaw
 $cloudInit = @"
 #cloud-config
 package_update: true
@@ -291,7 +291,7 @@ final_message: "OpenClaw ready!"
 $cloudInitFile = "$env:TEMP\cloud-init-openclaw.yaml"
 $cloudInit | Out-File -FilePath $cloudInitFile -Encoding utf8
 
-# Créer la VM sans IP publique
+# Create the VM without public IP
 az vm create `
     -g $ResourceGroup `
     -n $vmName `
@@ -305,14 +305,14 @@ az vm create `
     --custom-data $cloudInitFile `
     -o none
 
-Write-Host "   ✅ VM créée" -ForegroundColor Green
+Write-Host "   ✅ VM created" -ForegroundColor Green
 
 # =============================================================================
-# Étape 5: Préparer la configuration OpenClaw
+# Step 5: Prepare the OpenClaw configuration
 # =============================================================================
 
 Write-Host ""
-Write-Host "📝 Étape 5/5: Génération de la configuration..." -ForegroundColor Yellow
+Write-Host "📝 Step 5/5: Generating the configuration..." -ForegroundColor Yellow
 
 $openclawConfig = @"
 {
@@ -358,34 +358,34 @@ $openclawConfig = @"
 $configFile = Join-Path $PSScriptRoot "openclaw-config-$ResourceGroup.json"
 $openclawConfig | Out-File -FilePath $configFile -Encoding utf8
 
-Write-Host "   ✅ Configuration générée" -ForegroundColor Green
+Write-Host "   ✅ Configuration generated" -ForegroundColor Green
 
 # =============================================================================
-# Résumé
+# Summary
 # =============================================================================
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║              🎉 DÉPLOIEMENT TERMINÉ ! 🎉                       ║" -ForegroundColor Green
+Write-Host "║              🎉 DEPLOYMENT COMPLETE! 🎉                        ║" -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "🖥️ CONNEXION VM (via Bastion):" -ForegroundColor Cyan
+Write-Host "🖥️ VM CONNECTION (via Bastion):" -ForegroundColor Cyan
 Write-Host "   1. Portal Azure → Resource Groups → $ResourceGroup → $vmName" -ForegroundColor White
 Write-Host "   2. Connect → Bastion" -ForegroundColor White
 Write-Host "   3. Username: $AdminUsername" -ForegroundColor White
 Write-Host "   4. Password: $VmPassword" -ForegroundColor White
 Write-Host ""
 
-Write-Host "⚙️ CONFIGURATION (sur la VM):" -ForegroundColor Cyan
-Write-Host "   Copiez ce contenu dans ~/.openclaw/openclaw.json :" -ForegroundColor White
+Write-Host "⚙️ CONFIGURATION (on the VM):" -ForegroundColor Cyan
+Write-Host "   Copy this content into ~/.openclaw/openclaw.json:" -ForegroundColor White
 Write-Host ""
 Write-Host $openclawConfig -ForegroundColor Gray
 Write-Host ""
 
-Write-Host "🚀 DÉMARRAGE:" -ForegroundColor Cyan
+Write-Host "🚀 STARTUP:" -ForegroundColor Cyan
 Write-Host "   openclaw onboard --install-daemon" -ForegroundColor Gray
-Write-Host "   # ou" -ForegroundColor Gray
+Write-Host "   # or" -ForegroundColor Gray
 Write-Host "   ./start.sh" -ForegroundColor Gray
 Write-Host ""
 
@@ -395,7 +395,7 @@ Write-Host "   APIM Key: $apimKey" -ForegroundColor White
 Write-Host "   APIM URL: $apimGatewayUrl/openai" -ForegroundColor White
 Write-Host ""
 
-# Sauvegarder
+# Save
 $credFile = Join-Path $PSScriptRoot "credentials-$ResourceGroup.txt"
 @"
 OpenClaw Deployment - $(Get-Date -Format "yyyy-MM-dd HH:mm")

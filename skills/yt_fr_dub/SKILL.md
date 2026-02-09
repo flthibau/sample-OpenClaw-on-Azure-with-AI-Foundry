@@ -1,6 +1,6 @@
 ---
 name: yt_fr_dub
-description: YouTube URL → MP4 doublé en français → lien Blob (SAS)
+description: YouTube URL → French dubbed MP4 → Blob link (SAS)
 user-invocable: true
 ---
 

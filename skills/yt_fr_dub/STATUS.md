@@ -1,36 +1,36 @@
 # STATUS — yt_fr_dub
 
-## Résumé
+## Summary
 
-Skill OpenClaw : **URL YouTube → MP4 doublé en français**.
+OpenClaw Skill: **YouTube URL → French dubbed MP4**.
 
-## État actuel
+## Current Status
 
-- Pipeline global OK : download/entrée MP4 → transcribe → translate → TTS → remux
-- TTS : **Azure Speech via APIM** (`/speech/cognitiveservices/v1`, SSML)
-- Ajouts CLI :
-  - `--input <mp4>` pour utiliser un fichier local (skip yt-dlp)
-  - `--blobUpload` (+ options) pour uploader le MP4 final sur Azure Blob et renvoyer une **URL SAS**
-- Outils VM : `ffmpeg` / `ffprobe`, `yt-dlp`, `curl`, `az`
-- Garde-fou : vidéos **< 20 min** recommandées pour les tests
+- Overall pipeline OK: download/MP4 input → transcribe → translate → TTS → remux
+- TTS: **Azure Speech via APIM** (`/speech/cognitiveservices/v1`, SSML)
+- CLI additions:
+  - `--input <mp4>` to use a local file (skip yt-dlp)
+  - `--blobUpload` (+ options) to upload the final MP4 to Azure Blob and return a **SAS URL**
+- VM tools: `ffmpeg` / `ffprobe`, `yt-dlp`, `curl`, `az`
+- Safeguard: videos **< 20 min** recommended for testing
 
-## Blocage principal (résolu / contourné)
+## Main Blocker (resolved / workaround)
 
-- YouTube anti-bot/JS challenge (`n challenge solving failed`) → contourné avec EJS (`--remote-components ejs:github`) + runtime JS
-- Cookies YouTube nécessaires selon les vidéos
+- YouTube anti-bot/JS challenge (`n challenge solving failed`) → worked around with EJS (`--remote-components ejs:github`) + JS runtime
+- YouTube cookies required depending on the video
 
-## Vidéo de test
+## Test Video
 
 - https://youtu.be/-os0lxDX0bU?si=rixXxr5PZFDa9-Hf
 
-## Dernier test E2E
+## Last E2E Test
 
-- OK : génération MP4 doublé + upload Azure Blob + URL SAS renvoyée dans stdout
+- OK: dubbed MP4 generation + Azure Blob upload + SAS URL returned in stdout
 
 ## Next steps
 
-1) Ajouter au download YouTube du script `run.js` les flags EJS + support cookies (configurable) pour que l’E2E marche “juste avec une URL”
-2) Décider la stratégie de distribution par défaut :
-   - retourner une URL SAS (Blob) vs conserver fichier local
-3) Améliorer la synchro : aujourd’hui on fait `-shortest` (pas de time-stretch / align)
-4) Option : garder audio original en piste 2
+1) Add EJS flags + cookie support (configurable) to the YouTube download in `run.js` so the E2E works "just with a URL"
+2) Decide the default distribution strategy:
+   - return a SAS URL (Blob) vs keep local file
+3) Improve sync: currently using `-shortest` (no time-stretch / align)
+4) Option: keep original audio as track 2

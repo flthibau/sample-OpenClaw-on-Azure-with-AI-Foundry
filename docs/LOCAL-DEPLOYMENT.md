@@ -1,76 +1,76 @@
-# Déploiement Local Sécurisé (WSL)
+# Secure Local Deployment (WSL)
 
-Ce guide explique comment déployer OpenClaw localement sur Windows via WSL de manière sécurisée.
+This guide explains how to deploy OpenClaw locally on Windows via WSL in a secure manner.
 
-## 🔒 Caractéristiques de sécurité
+## 🔒 Security Features
 
-| Fonctionnalité | Description |
-|----------------|-------------|
-| **Isolation fichiers** | Aucun accès à `/mnt/c` (fichiers Windows) |
-| **Volume dédié** | Stockage dans `~/.openclaw-secure` uniquement |
-| **Limites ressources** | Configurable via systemd |
-| **Réseau restreint** | HTTP/HTTPS uniquement |
+| Feature | Description |
+|---------|-------------|
+| **File isolation** | No access to `/mnt/c` (Windows files) |
+| **Dedicated volume** | Storage in `~/.openclaw-secure` only |
+| **Resource limits** | Configurable via systemd |
+| **Restricted network** | HTTP/HTTPS only |
 
-## 📋 Prérequis
+## 📋 Prerequisites
 
-1. **Windows 10/11** avec WSL2 installé
-2. **Node.js 20+** installé dans WSL
-3. **Clé API OpenAI** (ou Azure OpenAI)
+1. **Windows 10/11** with WSL2 installed
+2. **Node.js 20+** installed in WSL
+3. **OpenAI API key** (or Azure OpenAI)
 
 ## 🚀 Installation
 
-### 1. Ouvrir WSL
+### 1. Open WSL
 
 ```powershell
 wsl
 ```
 
-### 2. Lancer le script de déploiement
+### 2. Run the deployment script
 
 ```bash
 cd /path/to/sample-OpenClaw-on-Azure-with-AI-Foundry/scripts
 
 chmod +x deploy-local-secure.sh
-./deploy-local-secure.sh --openai-key "sk-votre-clé"
+./deploy-local-secure.sh --openai-key "sk-your-key"
 ```
 
-### 3. C'est prêt !
+### 3. Ready!
 
-OpenClaw est accessible sur : http://localhost:18789
+OpenClaw is accessible at: http://localhost:18789
 
-## 📂 Structure des fichiers
+## 📂 File Structure
 
 ```
 ~/.openclaw-secure/
 ├── config/
-│   └── .env              # Configuration OpenClaw (clés API, etc.)
-├── data/                 # Données persistantes (mémoire)
-├── logs/                 # Logs de l'application
-├── start.sh              # Démarrer OpenClaw
-├── stop.sh               # Arrêter OpenClaw
-├── status.sh             # Vérifier le statut + sécurité
-├── logs.sh               # Voir les logs
-└── edit-config.sh        # Modifier la configuration
+│   └── .env              # OpenClaw configuration (API keys, etc.)
+├── data/                 # Persistent data (memory)
+├── logs/                 # Application logs
+├── start.sh              # Start OpenClaw
+├── stop.sh               # Stop OpenClaw
+├── status.sh             # Check status + security
+├── logs.sh               # View logs
+└── edit-config.sh        # Edit configuration
 ```
 
-## 🛠️ Commandes
+## 🛠️ Commands
 
 ```bash
 cd ~/.openclaw-secure
 
-# Démarrer
+# Start
 ./start.sh
 
-# Arrêter
+# Stop
 ./stop.sh
 
-# Vérifier le statut et la sécurité
+# Check status and security
 ./status.sh
 
-# Voir les logs
+# View logs
 ./logs.sh
 
-# Modifier la configuration
+# Edit configuration
 ./edit-config.sh
 ```
 
@@ -78,18 +78,18 @@ cd ~/.openclaw-secure
 
 ### OpenAI API
 
-Éditez `~/.openclaw-secure/config/.env` :
+Edit `~/.openclaw-secure/config/.env`:
 
 ```env
-OPENAI_API_KEY=sk-votre-clé-openai
+OPENAI_API_KEY=sk-your-openai-key
 ```
 
 ### WhatsApp (via Twilio)
 
 ```env
 WHATSAPP_ENABLED=true
-TWILIO_ACCOUNT_SID=votre-sid
-TWILIO_AUTH_TOKEN=votre-token
+TWILIO_ACCOUNT_SID=your-sid
+TWILIO_AUTH_TOKEN=your-token
 TWILIO_WHATSAPP_NUMBER=+14155238886
 ```
 
@@ -100,18 +100,18 @@ TELEGRAM_ENABLED=true
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 ```
 
-Après modification, redémarrez :
+After editing, restart:
 ```bash
 ./stop.sh && ./start.sh
 ```
 
-## 🔒 Vérification de la sécurité
+## 🔒 Security Verification
 
 ```bash
 ./status.sh
 ```
 
-Sortie attendue :
+Expected output:
 ```
 📊 OpenClaw Secure Status
 =========================
@@ -125,37 +125,37 @@ Sortie attendue :
    ✅ Network restricted to HTTP/HTTPS
 ```
 
-## 🆚 Comparaison : Local vs Azure
+## 🆚 Comparison: Local vs Azure
 
 | Aspect | Local (WSL) | Azure VM |
 |--------|-------------|----------|
-| **Coût** | ✅ Gratuit | ⚠️ ~$70/mois |
-| **Isolation** | ⚠️ Bonne (WSL) | ✅ Totale |
-| **Accès Windows** | ❌ Bloqué | ✅ Impossible |
-| **Performance** | Dépend de ton PC | Consistante |
-| **Disponibilité** | Quand PC allumé | 24/7 |
-| **Réseau** | HTTP/HTTPS | VNet isolé |
+| **Cost** | ✅ Free | ⚠️ ~$70/month |
+| **Isolation** | ⚠️ Good (WSL) | ✅ Full |
+| **Windows access** | ❌ Blocked | ✅ Impossible |
+| **Performance** | Depends on your PC | Consistent |
+| **Availability** | When PC is on | 24/7 |
+| **Network** | HTTP/HTTPS | Isolated VNet |
 
 ## ⚠️ Limitations
 
-1. **Pas d'isolation réseau totale** : Le process peut accéder à Internet (HTTP/HTTPS)
-2. **Même machine** : Un exploit kernel pourrait théoriquement s'échapper
+1. **No full network isolation**: The process can access the Internet (HTTP/HTTPS)
+2. **Same machine**: A kernel exploit could theoretically escape
 
-Pour une sécurité maximale, préférez le déploiement Azure.
+For maximum security, prefer the Azure deployment.
 
-## 🔧 Dépannage
+## 🔧 Troubleshooting
 
-### Erreur de permission
+### Permission error
 
 ```bash
 sudo chown -R $USER:$USER ~/.openclaw-secure
 chmod 700 ~/.openclaw-secure
 ```
 
-### Service ne démarre pas
+### Service won't start
 
 ```bash
 journalctl -u openclaw -f
-# Ou vérifier directement les logs
+# Or check the logs directly
 cat ~/.openclaw-secure/logs/*.log
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 #
-# OpenClaw on Azure - Déploiement complet avec APIM
-# Installation native + Azure AI Foundry + APIM
+# OpenClaw on Azure - Complete Deployment with APIM
+# Native installation + Azure AI Foundry + APIM
 #
 
 param(
@@ -19,63 +19,63 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     🦞 OpenClaw on Azure - Déploiement avec APIM 🦞           ║" -ForegroundColor Cyan
+Write-Host "║     🦞 OpenClaw on Azure - Deployment with APIM 🦞             ║" -ForegroundColor Cyan
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
 # =============================================================================
-# Vérification des prérequis
+# Prerequisites check
 # =============================================================================
 
-Write-Host "🔍 Vérification des prérequis..." -ForegroundColor Yellow
+Write-Host "🔍 Checking prerequisites..." -ForegroundColor Yellow
 
-# Vérifier Azure CLI
+# Check Azure CLI
 try {
     $azCmd = Get-Command az -ErrorAction Stop
-    Write-Host "   ✅ Azure CLI trouvé: $($azCmd.Source)" -ForegroundColor Green
+    Write-Host "   ✅ Azure CLI found: $($azCmd.Source)" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Azure CLI non installé. Installez-le depuis https://aka.ms/installazurecliwindows" -ForegroundColor Red
+    Write-Host "❌ Azure CLI not installed. Install it from https://aka.ms/installazurecliwindows" -ForegroundColor Red
     exit 1
 }
 
-# Vérifier connexion Azure
+# Check Azure connection
 $account = az account show --query name -o tsv 2>$null
 if (-not $account) {
-    Write-Host "⚠️ Non connecté à Azure. Connexion en cours..." -ForegroundColor Yellow
+    Write-Host "⚠️ Not connected to Azure. Connecting..." -ForegroundColor Yellow
     az login
     $account = az account show --query name -o tsv
 }
-Write-Host "   ✅ Connecté à: $account" -ForegroundColor Green
+Write-Host "   ✅ Connected to: $account" -ForegroundColor Green
 
 # =============================================================================
-# Générer les mots de passe
+# Generate passwords
 # =============================================================================
 
 $VmPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 16 | ForEach-Object {[char]$_}) + "!Aa1"
 $GatewayPassword = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 12 | ForEach-Object {[char]$_}) + "!"
 
 # =============================================================================
-# Étape 1: Créer le Resource Group
+# Step 1: Create the Resource Group
 # =============================================================================
 
 Write-Host ""
-Write-Host "📦 Étape 1/6: Création du Resource Group..." -ForegroundColor Yellow
+Write-Host "📦 Step 1/6: Creating the Resource Group..." -ForegroundColor Yellow
 az group create -n $ResourceGroup -l $Location -o none
-Write-Host "   ✅ Resource Group '$ResourceGroup' créé" -ForegroundColor Green
+Write-Host "   ✅ Resource Group '$ResourceGroup' created" -ForegroundColor Green
 
 # =============================================================================
-# Étape 2: Déployer l'infrastructure Bicep
+# Step 2: Deploy the Bicep infrastructure
 # =============================================================================
 
 Write-Host ""
-Write-Host "🏗️ Étape 2/6: Déploiement de l'infrastructure (VM + AI + APIM + Bastion)..." -ForegroundColor Yellow
-Write-Host "   ⏳ Cette étape peut prendre 15-20 minutes..." -ForegroundColor Gray
+Write-Host "🏗️ Step 2/6: Deploying infrastructure (VM + AI + APIM + Bastion)..." -ForegroundColor Yellow
+Write-Host "   ⏳ This step may take 15-20 minutes..." -ForegroundColor Gray
 
 $bicepPath = Join-Path $PSScriptRoot "..\infra\main-apim.bicep"
 
-# Vérifier que le fichier Bicep existe
+# Check that the Bicep file exists
 if (-not (Test-Path $bicepPath)) {
-    Write-Host "❌ Fichier Bicep non trouvé: $bicepPath" -ForegroundColor Red
+    Write-Host "❌ Bicep file not found: $bicepPath" -ForegroundColor Red
     exit 1
 }
 
@@ -92,7 +92,7 @@ $deploymentResult = az deployment group create `
     --query "properties.outputs" -o json | ConvertFrom-Json
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Échec du déploiement Bicep" -ForegroundColor Red
+    Write-Host "❌ Bicep deployment failed" -ForegroundColor Red
     exit 1
 }
 
@@ -102,41 +102,41 @@ $ApimName = $deploymentResult.apimName.value
 $AiFoundryEndpoint = $deploymentResult.aiFoundryEndpoint.value
 $BastionName = $deploymentResult.bastionName.value
 
-Write-Host "   ✅ Infrastructure déployée" -ForegroundColor Green
+Write-Host "   ✅ Infrastructure deployed" -ForegroundColor Green
 
 # =============================================================================
-# Étape 3: Récupérer la clé APIM
+# Step 3: Retrieve the APIM key
 # =============================================================================
 
 Write-Host ""
-Write-Host "🔑 Étape 3/6: Récupération de la clé APIM..." -ForegroundColor Yellow
+Write-Host "🔑 Step 3/6: Retrieving the APIM key..." -ForegroundColor Yellow
 
 $ApimKey = az rest --method post `
     --uri "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$ResourceGroup/providers/Microsoft.ApiManagement/service/$ApimName/subscriptions/openclaw-subscription/listSecrets?api-version=2024-05-01" `
     --query "primaryKey" -o tsv
 
 if (-not $ApimKey) {
-    Write-Host "⚠️ Impossible de récupérer la clé APIM. Récupération manuelle requise." -ForegroundColor Yellow
-    $ApimKey = "RECUPERER_MANUELLEMENT"
+    Write-Host "⚠️ Unable to retrieve the APIM key. Manual retrieval required." -ForegroundColor Yellow
+    $ApimKey = "RETRIEVE_MANUALLY"
 }
 
-Write-Host "   ✅ Clé APIM récupérée" -ForegroundColor Green
+Write-Host "   ✅ APIM key retrieved" -ForegroundColor Green
 
 # =============================================================================
-# Étape 4: Configurer OpenClaw sur la VM (via Bastion/Serial Console)
+# Step 4: Configure OpenClaw on the VM (via Bastion/Serial Console)
 # =============================================================================
 
 Write-Host ""
-Write-Host "⚙️ Étape 4/6: Attente de la configuration de la VM (5 minutes)..." -ForegroundColor Yellow
-Write-Host "   ⏳ Cloud-init installe Node.js et OpenClaw..." -ForegroundColor Gray
+Write-Host "⚙️ Step 4/6: Waiting for VM configuration (5 minutes)..." -ForegroundColor Yellow
+Write-Host "   ⏳ Cloud-init is installing Node.js and OpenClaw..." -ForegroundColor Gray
 Start-Sleep -Seconds 300
 
 # =============================================================================
-# Étape 5: Créer le fichier de configuration OpenClaw
+# Step 5: Create the OpenClaw configuration file
 # =============================================================================
 
 Write-Host ""
-Write-Host "📝 Étape 5/6: Préparation de la configuration OpenClaw..." -ForegroundColor Yellow
+Write-Host "📝 Step 5/6: Preparing OpenClaw configuration..." -ForegroundColor Yellow
 
 $OpenClawConfig = @"
 {
@@ -179,40 +179,40 @@ $OpenClawConfig = @"
 }
 "@
 
-# Sauvegarder la config localement
+# Save the config locally
 $ConfigPath = Join-Path $PSScriptRoot "openclaw-config-$ResourceGroup.json"
 $OpenClawConfig | Out-File -FilePath $ConfigPath -Encoding utf8
 
-Write-Host "   ✅ Configuration OpenClaw sauvegardée: $ConfigPath" -ForegroundColor Green
+Write-Host "   ✅ OpenClaw configuration saved: $ConfigPath" -ForegroundColor Green
 
 # =============================================================================
-# Étape 6: Résumé final
+# Step 6: Final summary
 # =============================================================================
 
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║              🎉 DÉPLOIEMENT TERMINÉ ! 🎉                       ║" -ForegroundColor Green
+Write-Host "║              🎉 DEPLOYMENT COMPLETE! 🎉                        ║" -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "🖥️ ACCÈS À LA VM (via Bastion):" -ForegroundColor Cyan
-Write-Host "   1. Allez sur https://portal.azure.com" -ForegroundColor White
+Write-Host "🖥️ VM ACCESS (via Bastion):" -ForegroundColor Cyan
+Write-Host "   1. Go to https://portal.azure.com" -ForegroundColor White
 Write-Host "   2. Resource Groups → $ResourceGroup → $VmNameOutput" -ForegroundColor White
-Write-Host "   3. Cliquez 'Connect' → 'Bastion'" -ForegroundColor White
+Write-Host "   3. Click 'Connect' → 'Bastion'" -ForegroundColor White
 Write-Host "   4. Username: $AdminUsername" -ForegroundColor White
 Write-Host "   5. Password: $VmPassword" -ForegroundColor White
 Write-Host ""
 
-Write-Host "⚙️ CONFIGURATION OPENCLAW (à exécuter sur la VM):" -ForegroundColor Cyan
-Write-Host "   1. Copiez le fichier de config dans la VM:" -ForegroundColor White
+Write-Host "⚙️ OPENCLAW CONFIGURATION (run on the VM):" -ForegroundColor Cyan
+Write-Host "   1. Copy the config file into the VM:" -ForegroundColor White
 Write-Host "      cat > ~/.openclaw/openclaw.json << 'EOF'" -ForegroundColor Gray
 Write-Host "      $OpenClawConfig" -ForegroundColor Gray
 Write-Host "      EOF" -ForegroundColor Gray
 Write-Host ""
-Write-Host "   2. Lancez l'onboarding:" -ForegroundColor White
+Write-Host "   2. Run the onboarding:" -ForegroundColor White
 Write-Host "      openclaw onboard --install-daemon" -ForegroundColor Gray
 Write-Host ""
-Write-Host "   3. Ou démarrez manuellement:" -ForegroundColor White
+Write-Host "   3. Or start manually:" -ForegroundColor White
 Write-Host "      ./start.sh" -ForegroundColor Gray
 Write-Host ""
 
@@ -222,26 +222,26 @@ Write-Host "   APIM Key: $ApimKey" -ForegroundColor White
 Write-Host "   APIM Endpoint: $ApimGatewayUrl/openai" -ForegroundColor White
 Write-Host ""
 
-Write-Host "🤖 MODÈLES CONFIGURÉS:" -ForegroundColor Cyan
-Write-Host "   - $ModelName (principal)" -ForegroundColor White
+Write-Host "🤖 CONFIGURED MODELS:" -ForegroundColor Cyan
+Write-Host "   - $ModelName (primary)" -ForegroundColor White
 Write-Host "   - gpt-5.2 (fallback)" -ForegroundColor White
 Write-Host "   - gpt-4o (fallback)" -ForegroundColor White
 Write-Host ""
 
-Write-Host "💰 POUR ÉCONOMISER:" -ForegroundColor Yellow
-Write-Host "   Arrêter la VM:" -ForegroundColor White
+Write-Host "💰 TO SAVE COSTS:" -ForegroundColor Yellow
+Write-Host "   Stop the VM:" -ForegroundColor White
 Write-Host "   az vm deallocate -g $ResourceGroup -n $VmNameOutput" -ForegroundColor Gray
 Write-Host ""
-Write-Host "   Redémarrer la VM:" -ForegroundColor White
+Write-Host "   Restart the VM:" -ForegroundColor White
 Write-Host "   az vm start -g $ResourceGroup -n $VmNameOutput" -ForegroundColor Gray
 Write-Host ""
 
-Write-Host "🗑️ POUR SUPPRIMER:" -ForegroundColor Yellow
+Write-Host "🗑️ TO DELETE:" -ForegroundColor Yellow
 Write-Host "   az group delete -n $ResourceGroup --yes --no-wait" -ForegroundColor Gray
 Write-Host ""
 
 # =============================================================================
-# Sauvegarder les credentials
+# Save credentials
 # =============================================================================
 
 $CredFile = Join-Path $PSScriptRoot "credentials-$ResourceGroup.txt"
@@ -250,7 +250,7 @@ OpenClaw on Azure - Credentials
 ================================
 Date: $(Get-Date -Format "yyyy-MM-dd HH:mm")
 
-=== ACCÈS VM (via Bastion) ===
+=== VM ACCESS (via Bastion) ===
 Resource Group: $ResourceGroup
 VM Name: $VmNameOutput
 Username: $AdminUsername
@@ -269,20 +269,20 @@ Subscription Key: $ApimKey
 Gateway Password: $GatewayPassword
 Dashboard: http://localhost:18789/ (via Bastion tunnel)
 
-=== COMMANDES UTILES ===
-# Arrêter VM:
+=== USEFUL COMMANDS ===
+# Stop VM:
 az vm deallocate -g $ResourceGroup -n $VmNameOutput
 
-# Démarrer VM:
+# Start VM:
 az vm start -g $ResourceGroup -n $VmNameOutput
 
-# Supprimer tout:
+# Delete all:
 az group delete -n $ResourceGroup --yes
 
-=== CONNEXION BASTION ===
+=== BASTION CONNECTION ===
 https://portal.azure.com → Resource Groups → $ResourceGroup → $VmNameOutput → Connect → Bastion
 "@ | Out-File -FilePath $CredFile -Encoding utf8
 
-Write-Host "📄 Credentials sauvegardés dans: $CredFile" -ForegroundColor Gray
-Write-Host "📄 Config OpenClaw sauvegardée dans: $ConfigPath" -ForegroundColor Gray
+Write-Host "📄 Credentials saved in: $CredFile" -ForegroundColor Gray
+Write-Host "📄 OpenClaw config saved in: $ConfigPath" -ForegroundColor Gray
 Write-Host ""
