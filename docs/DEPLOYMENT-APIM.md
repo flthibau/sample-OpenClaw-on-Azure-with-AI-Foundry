@@ -150,9 +150,36 @@ To switch models during a conversation:
 
 ## 🔍 Web Search
 
-OpenClaw supports **Brave Search** and **Perplexity** by default. To use Bing Search, you will need to create a custom skill (see the skills documentation).
+OpenClaw supports **Brave Search**, **Perplexity**, and **Azure Responses** (Bing-grounded) as web search providers.
 
-### Brave Search Configuration (recommended)
+### Azure Responses / Bing Search (recommended for APIM deployments)
+
+Uses Azure OpenAI's `web_search_preview` tool, which is powered by **Bing grounding** under the hood. This is the recommended approach when you already have an APIM gateway with gpt-4.1 deployed.
+
+Add to `~/.openclaw/openclaw.json` under `tools.web`:
+
+```json
+{
+  "tools": {
+    "web": {
+      "search": {
+        "enabled": true,
+        "provider": "azure-responses",
+        "azureResponses": {
+          "apiKey": "<your-apim-api-key>",
+          "baseUrl": "https://<your-apim>.azure-api.net/openai/v1/responses",
+          "apiVersion": "preview",
+          "model": "gpt-4.1"
+        }
+      }
+    }
+  }
+}
+```
+
+> **Note:** Requires the `azure-responses` provider patch in `zod-schema.agent-runtime.js` (see below). The defaults in `web-search.js` already point to the APIM endpoint.
+
+### Brave Search Configuration
 
 ```bash
 openclaw configure --section web
