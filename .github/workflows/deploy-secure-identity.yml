@@ -1,0 +1,101 @@
+# GitHub Actions OIDC workflow for OpenClaw Secure Identity
+# Uses Federated Identity — no secrets stored in GitHub
+name: Deploy Secure Identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/secure-identity.bicep'
+      - 'lib/**'
+      - 'scripts/harden-vm.sh'
+      - 'scripts/setup-github-app.sh'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_SUBSCRIPTION_ID: 'f79d4407-99c6-4d64-88fc-848fb05d5476'
+  AZURE_TENANT_ID: '38de1b20-8309-40ba-9584-5d9fcb7203b4'
+  AZURE_RG: 'rg-openclaw-test'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate Bicep
+        run: |
+          az bicep build --file infra/secure-identity.bicep
+          az deployment group validate \
+            --resource-group ${{ env.AZURE_RG }} \
+            --template-file infra/secure-identity.bicep \
+            --parameters vmName=vm-openclaw
+
+  deploy-infra:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Secure Identity
+        run: |
+          az deployment group create \
+            --resource-group ${{ env.AZURE_RG }} \
+            --template-file infra/secure-identity.bicep \
+            --parameters vmName=vm-openclaw \
+                         aiServicesName=admin-0508-resource \
+                         aiServicesResourceGroup=rg-admin-0508 \
+                         storageAccountName=stopenclawmedia \
+            --name "secure-identity-$(date +%Y%m%d-%H%M%S)"
+
+      - name: Attach UAMI to VM
+        run: |
+          az vm identity assign \
+            --resource-group ${{ env.AZURE_RG }} \
+            --name vm-openclaw \
+            --identities id-openclaw
+
+  sync-code:
+    runs-on: ubuntu-latest
+    needs: deploy-infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sync to VM
+        run: |
+          az vm run-command invoke \
+            --resource-group ${{ env.AZURE_RG }} \
+            --name vm-openclaw \
+            --command-id RunShellScript \
+            --scripts "
+              cd /home/azureuser/openclaw
+              git pull origin main
+              echo 'Sync complete'
+            "
